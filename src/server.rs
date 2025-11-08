@@ -19,25 +19,28 @@ pub enum MapObject {
         x: f32,
         y: f32,
         radius: f32,
-        obj_type: ObjectType,
+        factor: f32,
+        color: ColorDef,
+        is_hole: bool,
     },
     Rect {
         x: f32,
         y: f32,
         w: f32,
         h: f32,
-        obj_type: ObjectType,
+        factor: f32,
+        color: ColorDef,
+        is_hole: bool,
     },
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum ObjectType {
-    Hole,
-    Wall,
-    Bouncy {
-        factor: f32, // >1 stronger bounce, 1 normal, <1 weak, <0 inverts velocity
-    },
+pub struct ColorDef {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -503,33 +506,22 @@ impl GameState {
                         x,
                         y,
                         radius,
-                        obj_type,
+                        factor,
+                        color,
+                        is_hole,
                     } => {
                         // treat object circle radius, test intersection with player radius
                         if circle_intersects_circle(pos.x, pos.y, PLAYER_RADIUS, *x, *y, *radius) {
-                            match obj_type {
-                                ObjectType::Hole => {
-                                    // fell into hole -> respawn
-                                    p.pos = Vec2::new(100.0, 100.0);
-                                    p.vel = Vec2::ZERO;
-                                }
-                                ObjectType::Wall => {
-                                    // compute normal from object center to player
-                                    let delta = pos - Vec2::new(*x, *y);
-                                    let dist = delta.length().max(0.0001);
-                                    let n = delta / dist;
-                                    // push player out so edge touches
-                                    p.pos = Vec2::new(*x, *y) + n * (*radius + PLAYER_RADIUS);
-                                    // reflect velocity
-                                    p.vel = p.vel - 2.0 * p.vel.dot(n) * n;
-                                }
-                                ObjectType::Bouncy { factor } => {
-                                    let delta = pos - Vec2::new(*x, *y);
-                                    let dist = delta.length().max(0.0001);
-                                    let n = delta / dist;
-                                    p.pos = Vec2::new(*x, *y) + n * (*radius + PLAYER_RADIUS);
-                                    p.vel = p.vel - 2.0 * p.vel.dot(n) * n * (*factor);
-                                }
+                            if *is_hole {
+                                // fell into hole -> respawn
+                                p.pos = Vec2::new(100.0, 100.0);
+                                p.vel = Vec2::ZERO;
+                            } else {
+                                let delta = pos - Vec2::new(*x, *y);
+                                let dist = delta.length().max(0.0001);
+                                let n = delta / dist;
+                                p.pos = Vec2::new(*x, *y) + n * (*radius + PLAYER_RADIUS);
+                                p.vel = p.vel - 2.0 * p.vel.dot(n) * n * (*factor);
                             }
                         }
                     }
@@ -539,66 +531,57 @@ impl GameState {
                         y,
                         w,
                         h,
-                        obj_type,
+                        factor,
+                        color,
+                        is_hole,
                     } => {
                         // test circle (player) vs rect by nearest point
                         if circle_intersects_rect(pos.x, pos.y, PLAYER_RADIUS, *x, *y, *w, *h) {
-                            match obj_type {
-                                ObjectType::Hole => {
-                                    p.pos = Vec2::new(100.0, 100.0);
-                                    p.vel = Vec2::ZERO;
-                                }
-                                ObjectType::Wall | ObjectType::Bouncy { .. } => {
-                                    // compute nearest point on rect and robust normal
-                                    let cx = pos.x.clamp(*x, x + w);
-                                    let cy = pos.y.clamp(*y, y + h);
-                                    let mut n = (pos - Vec2::new(cx, cy));
+                            if *is_hole {
+                                p.pos = Vec2::new(100.0, 100.0);
+                                p.vel = Vec2::ZERO;
+                            } else {
+                                // compute nearest point on rect and robust normal
+                                let cx = pos.x.clamp(*x, x + w);
+                                let cy = pos.y.clamp(*y, y + h);
+                                let mut n = (pos - Vec2::new(cx, cy));
 
-                                    // If exactly inside center (very rare), choose outward axis with max penetration
-                                    if n.length_squared() < 1e-6 {
-                                        // compute penetration distances to each side
-                                        let left_pen = (pos.x - *x).abs();
-                                        let right_pen = (pos.x - (x + w)).abs();
-                                        let top_pen = (pos.y - *y).abs();
-                                        let bottom_pen = (pos.y - (y + h)).abs();
+                                // If exactly inside center (very rare), choose outward axis with max penetration
+                                if n.length_squared() < 1e-6 {
+                                    // compute penetration distances to each side
+                                    let left_pen = (pos.x - *x).abs();
+                                    let right_pen = (pos.x - (x + w)).abs();
+                                    let top_pen = (pos.y - *y).abs();
+                                    let bottom_pen = (pos.y - (y + h)).abs();
 
-                                        // pick largest distance to determine normal direction
-                                        if left_pen < right_pen
-                                            && left_pen < top_pen
-                                            && left_pen < bottom_pen
-                                        {
-                                            n = Vec2::new(-1.0, 0.0);
-                                        } else if right_pen < left_pen
-                                            && right_pen < top_pen
-                                            && right_pen < bottom_pen
-                                        {
-                                            n = Vec2::new(1.0, 0.0);
-                                        } else if top_pen < bottom_pen {
-                                            n = Vec2::new(0.0, -1.0);
-                                        } else {
-                                            n = Vec2::new(0.0, 1.0);
-                                        }
-                                    }
-
-                                    let n = n.normalize_or_zero();
-                                    // move player out along normal until touching (approx)
-                                    let overlap =
-                                        PLAYER_RADIUS - (pos - Vec2::new(cx, cy)).length();
-                                    if overlap > 0.0 {
-                                        p.pos += n * overlap;
+                                    // pick largest distance to determine normal direction
+                                    if left_pen < right_pen
+                                        && left_pen < top_pen
+                                        && left_pen < bottom_pen
+                                    {
+                                        n = Vec2::new(-1.0, 0.0);
+                                    } else if right_pen < left_pen
+                                        && right_pen < top_pen
+                                        && right_pen < bottom_pen
+                                    {
+                                        n = Vec2::new(1.0, 0.0);
+                                    } else if top_pen < bottom_pen {
+                                        n = Vec2::new(0.0, -1.0);
                                     } else {
-                                        // fallback small n push
-                                        p.pos += n * 1.0;
+                                        n = Vec2::new(0.0, 1.0);
                                     }
-
-                                    let factor = match obj_type {
-                                        ObjectType::Wall => 1.0,
-                                        ObjectType::Bouncy { factor } => *factor,
-                                        _ => 1.0,
-                                    };
-
-                                    p.vel = p.vel - 2.0 * p.vel.dot(n) * n * factor;
                                 }
+
+                                let n = n.normalize_or_zero();
+                                // move player out along normal until touching (approx)
+                                let overlap = PLAYER_RADIUS - (pos - Vec2::new(cx, cy)).length();
+                                if overlap > 0.0 {
+                                    p.pos += n * overlap;
+                                } else {
+                                    // fallback small n push
+                                    p.pos += n * 1.0;
+                                }
+                                p.vel = p.vel - 2.0 * p.vel.dot(n) * n * factor;
                             }
                         }
                     }
@@ -618,7 +601,9 @@ impl GameState {
                             x,
                             y,
                             radius,
-                            obj_type,
+                            factor,
+                            color,
+                            is_hole,
                         } => {
                             if circle_intersects_circle(
                                 sb_pos.x,
@@ -628,32 +613,18 @@ impl GameState {
                                 *y,
                                 *radius,
                             ) {
-                                match obj_type {
-                                    ObjectType::Hole => {
-                                        // snowball falls into hole -> remove immediately
-                                        self.snowballs.remove(sid);
-                                        break;
-                                    }
-                                    ObjectType::Wall => {
-                                        if let Some(sbm) = self.snowballs.get_mut(sid) {
-                                            let delta = sb_pos - Vec2::new(*x, *y);
-                                            let dist = delta.length().max(0.0001);
-                                            let n = delta / dist;
-                                            sbm.pos =
-                                                Vec2::new(*x, *y) + n * (*radius + SNOWBALL_RADIUS);
-                                            sbm.vel = sbm.vel - 2.0 * sbm.vel.dot(n) * n;
-                                        }
-                                    }
-                                    ObjectType::Bouncy { factor } => {
-                                        if let Some(sbm) = self.snowballs.get_mut(sid) {
-                                            let delta = sb_pos - Vec2::new(*x, *y);
-                                            let dist = delta.length().max(0.0001);
-                                            let n = delta / dist;
-                                            sbm.pos =
-                                                Vec2::new(*x, *y) + n * (*radius + SNOWBALL_RADIUS);
-                                            sbm.vel =
-                                                sbm.vel - 2.0 * sbm.vel.dot(n) * n * (*factor);
-                                        }
+                                if *is_hole {
+                                    // snowball falls into hole -> remove immediately
+                                    self.snowballs.remove(sid);
+                                    break;
+                                } else {
+                                    if let Some(sbm) = self.snowballs.get_mut(sid) {
+                                        let delta = sb_pos - Vec2::new(*x, *y);
+                                        let dist = delta.length().max(0.0001);
+                                        let n = delta / dist;
+                                        sbm.pos =
+                                            Vec2::new(*x, *y) + n * (*radius + SNOWBALL_RADIUS);
+                                        sbm.vel = sbm.vel - 2.0 * sbm.vel.dot(n) * n * (*factor);
                                     }
                                 }
                             }
@@ -664,7 +635,9 @@ impl GameState {
                             y,
                             w,
                             h,
-                            obj_type,
+                            factor,
+                            color,
+                            is_hole,
                         } => {
                             if circle_intersects_rect(
                                 sb_pos.x,
@@ -675,32 +648,24 @@ impl GameState {
                                 *w,
                                 *h,
                             ) {
-                                match obj_type {
-                                    ObjectType::Hole => {
-                                        self.snowballs.remove(sid);
-                                        break;
-                                    }
-                                    ObjectType::Wall | ObjectType::Bouncy { .. } => {
-                                        if let Some(sbm) = self.snowballs.get_mut(sid) {
-                                            let cx = sb_pos.x.clamp(*x, x + w);
-                                            let cy = sb_pos.y.clamp(*y, y + h);
-                                            let mut n = (sb_pos - Vec2::new(cx, cy));
-                                            if n.length_squared() < 1e-6 {
-                                                // choose axis direction
-                                                n = Vec2::new(
-                                                    (sb_pos.x - (x + w / 2.0)).signum(),
-                                                    (sb_pos.y - (y + h / 2.0)).signum(),
-                                                );
-                                            }
-                                            let n = n.normalize_or_zero();
-                                            sbm.pos += n * (SNOWBALL_RADIUS * 0.5 + 0.5);
-                                            let factor = match obj_type {
-                                                ObjectType::Wall => 1.0,
-                                                ObjectType::Bouncy { factor } => *factor,
-                                                _ => 1.0,
-                                            };
-                                            sbm.vel = sbm.vel - 2.0 * sbm.vel.dot(n) * n * factor;
+                                if *is_hole {
+                                    self.snowballs.remove(sid);
+                                    break;
+                                } else {
+                                    if let Some(sbm) = self.snowballs.get_mut(sid) {
+                                        let cx = sb_pos.x.clamp(*x, x + w);
+                                        let cy = sb_pos.y.clamp(*y, y + h);
+                                        let mut n = (sb_pos - Vec2::new(cx, cy));
+                                        if n.length_squared() < 1e-6 {
+                                            // choose axis direction
+                                            n = Vec2::new(
+                                                (sb_pos.x - (x + w / 2.0)).signum(),
+                                                (sb_pos.y - (y + h / 2.0)).signum(),
+                                            );
                                         }
+                                        let n = n.normalize_or_zero();
+                                        sbm.pos += n * (SNOWBALL_RADIUS * 0.5 + 0.5);
+                                        sbm.vel = sbm.vel - 2.0 * sbm.vel.dot(n) * n * factor;
                                     }
                                 }
                             }

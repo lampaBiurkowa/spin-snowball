@@ -19,25 +19,28 @@ pub enum MapObject {
         x: f32,
         y: f32,
         radius: f32,
-        obj_type: ObjectType,
+        factor: f32,
+        color: ColorDef,
+        is_hole: bool,
     },
     Rect {
         x: f32,
         y: f32,
         w: f32,
         h: f32,
-        obj_type: ObjectType,
+        factor: f32,
+        color: ColorDef,
+        is_hole: bool,
     },
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum ObjectType {
-    Hole,
-    Wall,
-    Bouncy {
-        factor: f32, // >1 stronger bounce, 1 normal, <1 weak, <0 inverts velocity
-    },
+pub struct ColorDef {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -327,14 +330,18 @@ impl EventHandler for MainState {
                     x,
                     y,
                     radius,
-                    obj_type,
+                    factor,
+                    color,
+                    is_hole,
                 } => {
-                    let col = match obj_type {
-                        ObjectType::Hole => Color::from_rgb(10, 10, 10), // black
-                        ObjectType::Wall => Color::from_rgb(150, 150, 170), // grey
-                        ObjectType::Bouncy { .. } => Color::from_rgb(80, 200, 255), // blue
-                    };
-                    mb.circle(DrawMode::fill(), Vec2::new(*x, *y), *radius, 0.5, col)?;
+                    let c = Color::from_rgba(
+                        (color.r * 255.0) as u8,
+                        (color.g * 255.0) as u8,
+                        (color.b * 255.0) as u8,
+                        (color.a * 255.0) as u8,
+                    );
+
+                    mb.circle(DrawMode::fill(), Vec2::new(*x, *y), *radius, 0.5, c)?;
                 }
 
                 MapObject::Rect {
@@ -342,14 +349,17 @@ impl EventHandler for MainState {
                     y,
                     w,
                     h,
-                    obj_type,
+                    factor,
+                    color,
+                    is_hole,
                 } => {
-                    let col = match obj_type {
-                        ObjectType::Hole => Color::from_rgb(10, 10, 10),
-                        ObjectType::Wall => Color::from_rgb(150, 150, 170),
-                        ObjectType::Bouncy { .. } => Color::from_rgb(80, 200, 255),
-                    };
-                    mb.rectangle(DrawMode::fill(), graphics::Rect::new(*x, *y, *w, *h), col)?;
+                    let c = Color::from_rgba(
+                        (color.r * 255.0) as u8,
+                        (color.g * 255.0) as u8,
+                        (color.b * 255.0) as u8,
+                        (color.a * 255.0) as u8,
+                    );
+                    mb.rectangle(DrawMode::fill(), graphics::Rect::new(*x, *y, *w, *h), c)?;
                 }
             }
         }
