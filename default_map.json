@@ -1,0 +1,63 @@
+{
+    "name": "Frost Arena",
+    "width": 800,
+    "height": 600,
+    "physics": {
+        "player_radius": 18.0,
+        "player_mass": 1.0,
+        "snowball_radius": 8.0,
+        "snowball_mass": 0.5,
+
+        "player_bounciness": 0.9,
+        "snowball_bounciness": 0.9,
+        "friction_per_frame": 0.98
+    },
+    "objects": [
+        {
+            "circle": {
+                "x": 400,
+                "y": 300,
+                "radius": 100,
+
+                "is_hole": true,
+                "factor": 1.0,
+                "color": { "r": 0.0, "g": 0.0, "b": 0.0, "a": 1.0 }
+            }
+        },
+        {
+            "rect": {
+                "x": 50,
+                "y": 50,
+                "w": 50,
+                "h": 500,
+
+                "is_hole": false,
+                "factor": 1.0,
+                "color": { "r": 0.6, "g": 0.6, "b": 0.7, "a": 1.0 }
+            }
+        },
+        {
+            "rect": {
+                "x": 700,
+                "y": 50,
+                "w": 50,
+                "h": 500,
+
+                "is_hole": false,
+                "factor": 1.6,
+                "color": { "r": 0.3, "g": 0.7, "b": 1.0, "a": 1.0 }
+            }
+        },
+        {
+            "circle": {
+                "x": 200,
+                "y": 150,
+                "radius": 40,
+
+                "is_hole": false,
+                "factor": 0.5,
+                "color": { "r": 1.0, "g": 0.5, "b": 0.5, "a": 0.8 }
+            }
+        }
+    ]
+}
