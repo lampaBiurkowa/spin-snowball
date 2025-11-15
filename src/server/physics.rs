@@ -1,7 +1,8 @@
 use glam::Vec2;
 
 use crate::{
-    Ball, GameState, Team, map::{MapObject, PhysicsSettings, matches_ball, matches_player}
+    Ball, GameState, Team,
+    map::{MapObject, PhysicsSettings, matches_ball, matches_player},
 };
 
 pub struct SimulateCollisionResponse {
@@ -242,7 +243,7 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
                         factor,
                         color: _,
                         is_hole,
-                        mask: _
+                        mask: _,
                     } => {
                         if circle_intersects_circle(
                             sb_snapshot.x,
@@ -272,7 +273,7 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
                         factor,
                         color: _,
                         is_hole,
-                        mask: _
+                        mask: _,
                     } => {
                         if circle_intersects_rect(
                             sb_snapshot.x,
@@ -323,7 +324,7 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
                     factor,
                     color: _,
                     is_hole,
-                    mask: _
+                    mask: _,
                 } => {
                     if circle_intersects_circle(
                         ball.pos.x,
@@ -352,7 +353,7 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
                     factor,
                     color: _,
                     is_hole,
-                    mask: _
+                    mask: _,
                 } => {
                     if circle_intersects_rect(
                         ball.pos.x,
@@ -431,7 +432,7 @@ fn handle_map_for_body_player(
                 factor,
                 color: _,
                 is_hole,
-                mask: _
+                mask: _,
             } => {
                 if circle_intersects_circle(pos.x, pos.y, physics.player_radius, *x, *y, *radius) {
                     if *is_hole {
@@ -453,7 +454,7 @@ fn handle_map_for_body_player(
                 factor,
                 color: _,
                 is_hole,
-                mask: _
+                mask: _,
             } => {
                 if circle_intersects_rect(pos.x, pos.y, physics.player_radius, *x, *y, *w, *h) {
                     if *is_hole {

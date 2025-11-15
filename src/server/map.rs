@@ -9,24 +9,23 @@ pub enum CollisionMaskTag {
     Ball,
     PlayerTeam1,
     PlayerTeam2,
-    Snowball
+    Snowball,
 }
 
-    pub fn matches_ball(mask: &Vec<CollisionMaskTag>) -> bool {
-        mask.contains(&CollisionMaskTag::Ball)
-    }
+pub fn matches_ball(mask: &Vec<CollisionMaskTag>) -> bool {
+    mask.contains(&CollisionMaskTag::Ball)
+}
 
-    pub fn matches_player(mask: &Vec<CollisionMaskTag>, team: Team) -> bool {
-        match team {
-            Team::Team1 => mask.contains(&CollisionMaskTag::PlayerTeam1),
-            Team::Team2 => mask.contains(&CollisionMaskTag::PlayerTeam2),
-        }
+pub fn matches_player(mask: &Vec<CollisionMaskTag>, team: Team) -> bool {
+    match team {
+        Team::Team1 => mask.contains(&CollisionMaskTag::PlayerTeam1),
+        Team::Team2 => mask.contains(&CollisionMaskTag::PlayerTeam2),
     }
+}
 
-    pub fn matches_snowball(mask: &Vec<CollisionMaskTag>) -> bool {
-        mask.contains(&CollisionMaskTag::Snowball)
-    }
-
+pub fn matches_snowball(mask: &Vec<CollisionMaskTag>) -> bool {
+    mask.contains(&CollisionMaskTag::Snowball)
+}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,7 +99,7 @@ impl Default for PhysicsSettings {
             friction_per_frame: 0.98,
             ball_bounciness: 0.8,
             ball_mass: 1.0,
-            ball_radius: 10.0
+            ball_radius: 10.0,
         }
     }
 }

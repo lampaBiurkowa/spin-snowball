@@ -113,7 +113,7 @@ impl GameState {
             }
             _ => None,
         };
-        println!("HEJA {:?}" , ball.is_some() );
+        println!("HEJA {:?}", ball.is_some());
 
         Self {
             players: HashMap::new(),
@@ -163,6 +163,8 @@ impl GameState {
 
     fn apply_input(&mut self, id: &str, left: bool, right: bool, shoot: bool) {
         if let Some(p) = self.players.get_mut(id) {
+            p.rotating_left = left;
+            p.rotating_right = right;
             // Edge-detect the shoot button on server side:
             // only spawn a snowball when shoot transitions from false -> true
             if shoot && !p.last_shoot_pressed {
@@ -199,8 +201,8 @@ impl GameState {
                     p.last_shoot_pressed = false;
                 }
                 // Normal rotate state handling
-                p.rotating_left = left;
-                p.rotating_right = right;
+                // p.rotating_left = left;
+                // p.rotating_right = right;
             }
         }
     }
@@ -282,7 +284,11 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                 }
 
                 if let Some(scoring_team) = response.goal_for_team {
-                    let team = if scoring_team == 1 { Team::Team1 } else { Team::Team2 }; // Convert raw number from collision detection
+                    let team = if scoring_team == 1 {
+                        Team::Team1
+                    } else {
+                        Team::Team2
+                    }; // Convert raw number from collision detection
                     *gs.scores.entry(team).or_insert(0) += 1;
 
                     let b = gs.map.football.clone().unwrap().ball;
@@ -293,7 +299,15 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                 }
 
                 let (players, snowballs) = gs.snapshot();
-                let msg = ServerMessage::WorldState { players, snowballs, ball: gs.ball.clone().map(|x| BallState { pos: x.pos.into(), vel: x.vel.into() }), scores: gs.scores.clone() };
+                let msg = ServerMessage::WorldState {
+                    players,
+                    snowballs,
+                    ball: gs.ball.clone().map(|x| BallState {
+                        pos: x.pos.into(),
+                        vel: x.vel.into(),
+                    }),
+                    scores: gs.scores.clone(),
+                };
                 let txt = serde_json::to_string(&msg).unwrap();
 
                 // broadcast to all peers
