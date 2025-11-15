@@ -31,10 +31,18 @@ pub enum ServerMessage {
     WorldState {
         players: Vec<PlayerState>,
         snowballs: Vec<SnowballState>,
+        scores: std::collections::HashMap<String, u32>,
+        ball: Option<BallState>,
     },
     Pong {
         ts: u64,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BallState {
+    pub pos: [f32; 2],
+    pub vel: [f32; 2],
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

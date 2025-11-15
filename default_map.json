@@ -2,16 +2,42 @@
     "name": "Frost Arena",
     "width": 800,
     "height": 600,
+    "mode": "football",
     "physics": {
         "player_radius": 18.0,
         "player_mass": 1.0,
         "snowball_radius": 8.0,
         "snowball_mass": 0.5,
+        "ball_mass": 1.0,
+        "ball_radius": 10.0,
+        "ball_bounciness": 0.8,
 
         "player_bounciness": 0.9,
         "snowball_bounciness": 0.9,
         "friction_per_frame": 0.98
     },
+    "football": {
+    "ball": {
+      "spawn_x": 200,
+      "spawn_y": 300
+    },
+    "goals": [
+      {
+        "x": 20,
+        "y": 250,
+        "w": 40,
+        "h": 100,
+        "team": 1
+      },
+      {
+        "x": 740,
+        "y": 250,
+        "w": 40,
+        "h": 100,
+        "team": 2
+      }
+    ]
+  },
     "objects": [
         {
             "circle": {
@@ -27,9 +53,9 @@
         {
             "rect": {
                 "x": 50,
-                "y": 50,
+                "y": 350,
                 "w": 50,
-                "h": 500,
+                "h": 200,
 
                 "is_hole": false,
                 "factor": 1.0,

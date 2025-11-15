@@ -44,11 +44,61 @@ pub struct ColorDef {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GameMode {
+    Fight,
+    Football,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BallDef {
+    pub spawn_x: f32,
+    pub spawn_y: f32
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoalDef {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    pub team: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FootballSettings {
+    pub ball: BallDef,
+    pub goals: Vec<GoalDef>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PhysicsSettings {
+    pub player_radius: f32,
+    pub player_mass: f32,
+
+    pub snowball_radius: f32,
+    pub snowball_mass: f32,
+
+    pub player_bounciness: f32,
+    pub snowball_bounciness: f32,
+    pub ball_radius: f32,
+    pub ball_mass: f32,
+    pub ball_bounciness: f32,
+
+    pub friction_per_frame: f32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct GameMap {
     pub name: String,
     pub width: f32,
     pub height: f32,
     pub objects: Vec<MapObject>,
+    pub mode: GameMode,
+    pub football: Option<FootballSettings>,
+    pub physics: PhysicsSettings
 }
 
 const SCREEN_W: f32 = 800.0;
@@ -77,10 +127,24 @@ enum ServerMessage {
     WorldState {
         players: Vec<PlayerState>,
         snowballs: Vec<SnowballState>,
+        scores: std::collections::HashMap<String, u32>,
+        ball: Option<BallState>,
     },
     Pong {
         ts: u64,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct BallState {
+    pos: [f32; 2],
+    vel: [f32; 2],
+}
+
+struct Ball {
+    pos: Vec2,
+    vel: Vec2,
+    radius: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -136,6 +200,8 @@ struct MainState {
     my_id: Option<String>,
     last_sent_input: (bool, bool, bool),
     map: GameMap,
+    ball: Option<Ball>,
+    scores: std::collections::HashMap<String, u32>,
 }
 
 impl Player {
@@ -178,6 +244,8 @@ impl MainState {
             my_id: None,
             last_sent_input: (false, false, false),
             map,
+            scores: std::collections::HashMap::new(),
+            ball: None,
         };
         Ok(s)
     }
@@ -228,7 +296,7 @@ impl EventHandler for MainState {
                         self.my_id = Some(id.clone());
                         self.player.id = Some(id);
                     }
-                    ServerMessage::WorldState { players, snowballs } => {
+                    ServerMessage::WorldState { players, snowballs, ball, scores } => {
                         // update local copy: find our player and snap to authoritative
                         if let Some(my_id) = &self.my_id {
                             for p in &players {
@@ -251,6 +319,22 @@ impl EventHandler for MainState {
                                 vel: Vec2::new(sb.vel[0], sb.vel[1]),
                                 life: sb.life,
                             });
+                        }
+
+                        self.scores = scores;
+
+                        if let Some(b) = ball {
+                            let radius = self
+                                .map
+                                .physics.ball_radius;
+
+                            self.ball = Some(Ball {
+                                pos: Vec2::new(b.pos[0], b.pos[1]),
+                                vel: Vec2::new(b.vel[0], b.vel[1]),
+                                radius
+                            });
+                        } else {
+                            self.ball = None;
                         }
                     }
                     ServerMessage::Pong { ts: _ } => {}
@@ -365,6 +449,23 @@ impl EventHandler for MainState {
         }
         // ============================================
 
+        // Draw goals (football mode)
+        if let Some(fb) = &self.map.football {
+            for goal in &fb.goals {
+                let c = if goal.team == 1 {
+                    Color::from_rgb(200, 50, 50)
+                } else {
+                    Color::from_rgb(50, 50, 200)
+                };
+
+                mb.rectangle(
+                    DrawMode::stroke(2.0),
+                    graphics::Rect::new(goal.x, goal.y, goal.w, goal.h),
+                    c,
+                )?;
+            }
+        }
+
         // draw other players (from authoritative snapshot)
         for p in &self.other_players {
             // avoid drawing self twice
@@ -419,6 +520,17 @@ impl EventHandler for MainState {
             mb.circle(DrawMode::fill(), Vec2::new(sb.pos.x, sb.pos.y), 6.0, 0.5, c)?;
         }
 
+        if let Some(ball) = &self.ball {
+            let c = Color::from_rgb(250, 230, 120);
+            mb.circle(
+                DrawMode::fill(),
+                ball.pos,
+                ball.radius,
+                0.5,
+                c,
+            )?;
+        }
+
         let mesh = mb.build();
         let mesh = graphics::Mesh::from_data(&ctx.gfx, mesh);
         canvas.draw(&mesh, ggez::graphics::DrawParam::default());
@@ -443,6 +555,16 @@ impl EventHandler for MainState {
         )?;
         canvas.draw(&bar_back, graphics::DrawParam::default());
         canvas.draw(&bar_front, graphics::DrawParam::default());
+
+        let mut y = 20.0;
+        for (id, score) in &self.scores {
+            let text = graphics::Text::new(format!("{}: {}", id, score));
+            canvas.draw(
+                &text,
+                graphics::DrawParam::default().dest(Vec2::new(20.0, y)),
+            );
+            y += 22.0;
+        }
 
         canvas.finish(ctx)
     }

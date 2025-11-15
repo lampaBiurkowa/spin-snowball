@@ -8,8 +8,8 @@ use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::map::GameMap;
-use crate::network::{PlayerState, ServerMessage, SnowballState, handle_connection};
+use crate::map::{GameMap, GameMode};
+use crate::network::{BallState, PlayerState, ServerMessage, SnowballState, handle_connection};
 use crate::physics::{simulate_collisions, simulate_movement};
 
 mod map;
@@ -78,19 +78,41 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[derive(Clone)]
+struct Ball {
+    pos: Vec2,
+    vel: Vec2,
+}
+
 struct GameState {
     players: HashMap<String, Player>,
     snowballs: HashMap<u64, Snowball>,
     next_snowball_id: u64,
     map: GameMap,
+    scores: HashMap<String, u32>,
+    ball: Option<Ball>,
 }
 
 impl GameState {
     fn new(map: GameMap) -> Self {
+        let ball = match map.mode {
+            GameMode::Football => {
+                let b = &map.football.as_ref().unwrap().ball;
+                Some(Ball {
+                    pos: Vec2::new(b.spawn_x, b.spawn_y),
+                    vel: Vec2::ZERO,
+                })
+            }
+            _ => None,
+        };
+        println!("HEJA {:?}" , ball.is_some() );
+
         Self {
             players: HashMap::new(),
             snowballs: HashMap::new(),
             next_snowball_id: 1,
+            scores: HashMap::new(),
+            ball,
             map,
         }
     }
@@ -100,6 +122,7 @@ impl GameState {
             rand::random::<f32>() * (self.map.width - 40.0) + 20.0,
             rand::random::<f32>() * (self.map.height - 40.0) + 20.0,
         );
+        self.scores.insert(id.clone(), 0);
         self.players.insert(
             id.clone(),
             Player {
@@ -218,9 +241,41 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                 let mut gs = game_state.lock().unwrap();
                 gs.logic_step(DT);
                 simulate_movement(&mut gs, DT);
-                simulate_collisions(&mut gs);
+                let response = simulate_collisions(&mut gs);
+
+                for id in response.players_in_holes.into_iter() {
+                    if gs.map.mode == GameMode::Fight {
+                        if let Some(p) = gs.players.get_mut(&id) {
+                            p.pos = Vec2::new(100.0, 100.0); //respawn pos
+                            p.vel = Vec2::ZERO;
+                        }
+                        for (other_id, score) in gs.scores.iter_mut() {
+                            if *other_id != id {
+                                *score += 1;
+                            }
+                        }
+                    }
+                }
+
+                for sid in response.snowballs_in_holes.into_iter() {
+                    gs.snowballs.remove(&sid);
+                }
+
+                if let Some(scoring_team) = response.goal_for_team {
+                    gs.scores
+                        .entry(format!("team_{}", scoring_team))
+                        .and_modify(|x| *x += 1)
+                        .or_insert(1);
+
+                    let b = gs.map.football.clone().unwrap().ball;
+                    if let Some(ball) = &mut gs.ball {
+                        ball.pos = Vec2::new(b.spawn_x, b.spawn_y);
+                        ball.vel = Vec2::ZERO;
+                    }
+                }
+
                 let (players, snowballs) = gs.snapshot();
-                let msg = ServerMessage::WorldState { players, snowballs };
+                let msg = ServerMessage::WorldState { players, snowballs, ball: gs.ball.clone().map(|x| BallState { pos: x.pos.into(), vel: x.vel.into() }), scores: gs.scores.clone() };
                 let txt = serde_json::to_string(&msg).unwrap();
 
                 // broadcast to all peers
