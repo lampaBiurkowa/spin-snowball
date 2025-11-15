@@ -1,12 +1,11 @@
 use glam::Vec2;
 
 use crate::{
-    Ball, GameState,
-    map::{MapObject, PhysicsSettings},
+    Ball, GameState, Team, map::{MapObject, PhysicsSettings, matches_ball, matches_player}
 };
 
 pub struct SimulateCollisionResponse {
-    pub players_in_holes: Vec<String>,
+    pub players_in_holes: Vec<Team>,
     pub snowballs_in_holes: Vec<u64>,
     pub goal_for_team: Option<u32>,
 }
@@ -243,6 +242,7 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
                         factor,
                         color: _,
                         is_hole,
+                        mask: _
                     } => {
                         if circle_intersects_circle(
                             sb_snapshot.x,
@@ -272,6 +272,7 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
                         factor,
                         color: _,
                         is_hole,
+                        mask: _
                     } => {
                         if circle_intersects_rect(
                             sb_snapshot.x,
@@ -308,6 +309,12 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
     // Ball
     if let Some(ball) = &mut game_state.ball {
         for obj in &game_state.map.objects {
+            let mask = match obj {
+                MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } => mask,
+            };
+            if !matches_ball(&mask) {
+                continue;
+            }
             match obj {
                 MapObject::Circle {
                     x,
@@ -316,6 +323,7 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
                     factor,
                     color: _,
                     is_hole,
+                    mask: _
                 } => {
                     if circle_intersects_circle(
                         ball.pos.x,
@@ -344,6 +352,7 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
                     factor,
                     color: _,
                     is_hole,
+                    mask: _
                 } => {
                     if circle_intersects_rect(
                         ball.pos.x,
@@ -408,6 +417,12 @@ fn handle_map_for_body_player(
 ) {
     let pos = player.pos;
     for obj in objects {
+        let mask = match obj {
+            MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } => mask,
+        };
+        if !matches_player(&mask, player.team) {
+            continue;
+        }
         match obj {
             MapObject::Circle {
                 x,
@@ -416,11 +431,11 @@ fn handle_map_for_body_player(
                 factor,
                 color: _,
                 is_hole,
+                mask: _
             } => {
                 if circle_intersects_circle(pos.x, pos.y, physics.player_radius, *x, *y, *radius) {
                     if *is_hole {
-                        response.players_in_holes.push(id.to_string());
-                        // respawns.push(id.to_string());
+                        response.players_in_holes.push(player.team);
                     } else {
                         let delta = pos - Vec2::new(*x, *y);
                         let dist = delta.length().max(0.0001);
@@ -438,11 +453,11 @@ fn handle_map_for_body_player(
                 factor,
                 color: _,
                 is_hole,
+                mask: _
             } => {
                 if circle_intersects_rect(pos.x, pos.y, physics.player_radius, *x, *y, *w, *h) {
                     if *is_hole {
-                        response.players_in_holes.push(id.to_string());
-                        // respawns.push(id.to_string());
+                        response.players_in_holes.push(player.team);
                     } else {
                         let cx = pos.x.clamp(*x, x + w);
                         let cy = pos.y.clamp(*y, y + h);

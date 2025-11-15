@@ -1,5 +1,33 @@
 use serde::Deserialize;
 
+use crate::Team;
+
+#[derive(Clone, Copy, Debug, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[derive(PartialEq)]
+pub enum CollisionMaskTag {
+    Ball,
+    PlayerTeam1,
+    PlayerTeam2,
+    Snowball
+}
+
+    pub fn matches_ball(mask: &Vec<CollisionMaskTag>) -> bool {
+        mask.contains(&CollisionMaskTag::Ball)
+    }
+
+    pub fn matches_player(mask: &Vec<CollisionMaskTag>, team: Team) -> bool {
+        match team {
+            Team::Team1 => mask.contains(&CollisionMaskTag::PlayerTeam1),
+            Team::Team2 => mask.contains(&CollisionMaskTag::PlayerTeam2),
+        }
+    }
+
+    pub fn matches_snowball(mask: &Vec<CollisionMaskTag>) -> bool {
+        mask.contains(&CollisionMaskTag::Snowball)
+    }
+
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MapObject {
@@ -10,6 +38,7 @@ pub enum MapObject {
         factor: f32,
         color: ColorDef,
         is_hole: bool,
+        mask: Vec<CollisionMaskTag>,
     },
     Rect {
         x: f32,
@@ -19,6 +48,7 @@ pub enum MapObject {
         factor: f32,
         color: ColorDef,
         is_hole: bool,
+        mask: Vec<CollisionMaskTag>,
     },
 }
 

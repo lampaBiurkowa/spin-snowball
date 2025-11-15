@@ -28,6 +28,7 @@ struct Player {
     rotating_right: bool,
     spin_timer: f32,
     last_shoot_pressed: bool,
+    team: Team,
 }
 
 struct Snowball {
@@ -35,6 +36,12 @@ struct Snowball {
     pos: Vec2,
     vel: Vec2,
     life: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum Team {
+    Team1,
+    Team2,
 }
 
 type Tx = UnboundedSender<Message>;
@@ -89,8 +96,9 @@ struct GameState {
     snowballs: HashMap<u64, Snowball>,
     next_snowball_id: u64,
     map: GameMap,
-    scores: HashMap<String, u32>,
+    scores: HashMap<Team, u32>,
     ball: Option<Ball>,
+    next_team: Team,
 }
 
 impl GameState {
@@ -114,6 +122,7 @@ impl GameState {
             scores: HashMap::new(),
             ball,
             map,
+            next_team: Team::Team1,
         }
     }
 
@@ -122,11 +131,21 @@ impl GameState {
             rand::random::<f32>() * (self.map.width - 40.0) + 20.0,
             rand::random::<f32>() * (self.map.height - 40.0) + 20.0,
         );
-        self.scores.insert(id.clone(), 0);
+
+        let team = self.next_team;
+
+        self.next_team = match self.next_team {
+            Team::Team1 => Team::Team2,
+            Team::Team2 => Team::Team1,
+        };
+
+        self.scores.entry(team).or_insert(0);
+
         self.players.insert(
             id.clone(),
             Player {
                 id,
+                team,
                 pos,
                 vel: Vec2::ZERO,
                 rot_deg: -90.0,
@@ -210,6 +229,7 @@ impl GameState {
                 pos: [p.pos.x, p.pos.y],
                 vel: [p.vel.x, p.vel.y],
                 rot_deg: p.rot_deg,
+                team: p.team,
             })
             .collect();
 
@@ -245,7 +265,7 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
 
                 for id in response.players_in_holes.into_iter() {
                     if gs.map.mode == GameMode::Fight {
-                        if let Some(p) = gs.players.get_mut(&id) {
+                        if let Some(p) = gs.players.values_mut().find(|x| x.team == id) {
                             p.pos = Vec2::new(100.0, 100.0); //respawn pos
                             p.vel = Vec2::ZERO;
                         }
@@ -262,10 +282,8 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                 }
 
                 if let Some(scoring_team) = response.goal_for_team {
-                    gs.scores
-                        .entry(format!("team_{}", scoring_team))
-                        .and_modify(|x| *x += 1)
-                        .or_insert(1);
+                    let team = if scoring_team == 1 { Team::Team1 } else { Team::Team2 }; // Convert raw number from collision detection
+                    *gs.scores.entry(team).or_insert(0) += 1;
 
                     let b = gs.map.football.clone().unwrap().ball;
                     if let Some(ball) = &mut gs.ball {

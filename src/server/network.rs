@@ -7,7 +7,7 @@ use tokio_tungstenite::accept_async;
 use tungstenite::Message;
 use uuid::Uuid;
 
-use crate::{GameState, PeerMap};
+use crate::{GameState, PeerMap, Team};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
@@ -31,7 +31,7 @@ pub enum ServerMessage {
     WorldState {
         players: Vec<PlayerState>,
         snowballs: Vec<SnowballState>,
-        scores: std::collections::HashMap<String, u32>,
+        scores: std::collections::HashMap<Team, u32>,
         ball: Option<BallState>,
     },
     Pong {
@@ -51,6 +51,7 @@ pub struct PlayerState {
     pub pos: [f32; 2],
     pub vel: [f32; 2],
     pub rot_deg: f32,
+    pub team: Team,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
