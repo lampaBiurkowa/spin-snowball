@@ -1,0 +1,77 @@
+name: Build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  gh-version: 1.0.${{ github.run_number }}
+  IMAGE_NAME: spin-snowball
+
+jobs:
+  build-client:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin_name: client.exe
+
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin_name: client
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libudev-dev \
+            pkg-config
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build client (${{ matrix.target }})
+        run: cargo build --release --target=${{ matrix.target }} --bin client
+
+      - name: Package artifacts
+        run: |
+          mkdir artifacts
+          cp target/${{ matrix.target }}/release/${{ matrix.bin_name }} artifacts/
+
+      - name: Upload client binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-${{ matrix.target }}
+          path: artifacts/${{ matrix.bin_name }}
+
+
+  deploy-image:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v2
+      - id: get_version
+        uses: battila7/get-version-action@v2
+      - name: Build image
+        run: docker build . --build-arg GH_USERNAME=${{secrets.GH_USERNAME}} --build-arg GH_TOKEN=${{secrets.GH_TOKEN}} --tag ${{env.IMAGE_NAME}}:latest --tag ${{env.IMAGE_NAME}}:${{env.gh-version}}
+      - name: Push image
+        run: |
+          docker login --username=${{secrets.GH_USERNAME}} --password="${{secrets.GH_TOKEN}}" ghcr.io
+          docker image tag ${{env.IMAGE_NAME}}:${{env.gh-version}} ghcr.io/dibrysoft/${{env.IMAGE_NAME}}:${{env.gh-version}}
+          docker image tag ${{env.IMAGE_NAME}}:latest ghcr.io/dibrysoft/${{env.IMAGE_NAME}}:latest
+          docker image push ghcr.io/dibrysoft/${{env.IMAGE_NAME}}:${{env.gh-version}}
+          docker image push ghcr.io/dibrysoft/${{env.IMAGE_NAME}}:latest
