@@ -3,14 +3,6 @@ name = "spin-snowball-client"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "server"
-path = "src/server/main.rs"
-
-[[bin]]
-name = "client"
-path = "src/client/main.rs"
-
 [dependencies]
 #client
 ggez = { version = "0.10.0-rc0" }
