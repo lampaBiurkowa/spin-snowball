@@ -23,6 +23,6 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=builder /app/target/release/spin-snowball-server /app/server
+COPY --from=builder /app/target/release/spin-snowball-server /usr/local/bin/server
 COPY --from=builder /app/default_map.json /app/default_map.json
-CMD ["./server"]
+CMD ["server"]
