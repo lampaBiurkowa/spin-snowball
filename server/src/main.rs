@@ -136,7 +136,7 @@ fn load_map_form_data(data: &str) -> GameMap {
 async fn main() -> anyhow::Result<()> {
     let addr = env::args()
         .nth(1)
-        .unwrap_or_else(|| "127.0.0.1:9001".to_string());
+        .unwrap_or_else(|| "0.0.0.0:9001".to_string());
     println!("Starting server on {}", addr);
 
     let listener = TcpListener::bind(&addr).await?;
