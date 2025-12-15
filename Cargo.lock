@@ -2828,7 +2828,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin-snowball"
+name = "spin-snowball-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
