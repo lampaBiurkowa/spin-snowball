@@ -4,7 +4,7 @@
   "height": 600,
   "mode": "football",
   "physics": {
-    "player_radius": 18.0,
+    "player_radius": 25.0,
     "player_mass": 1.0,
     "snowball_radius": 8.0,
     "snowball_mass": 0.5,

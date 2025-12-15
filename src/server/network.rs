@@ -7,7 +7,7 @@ use tokio_tungstenite::accept_async;
 use tungstenite::Message;
 use uuid::Uuid;
 
-use crate::{GameState, PeerMap, Team};
+use crate::{GameState, MatchPhase, PeerMap, PlayerStatus, Team};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
@@ -20,6 +20,28 @@ pub enum ClientMessage {
     Ping {
         ts: u64,
     },
+    Command {
+        cmd: Command,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "cmd")]
+pub enum Command {
+    Start {
+        score_limit: Option<u32>,
+        time_limit_secs: Option<u32>,
+    },
+    Stop,
+    Pause,
+    Resume,
+    LoadMap {
+        data: String,
+    },
+    JoinAsPlayer {
+        team: Team,
+    },
+    JoinAsSpectator,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -33,6 +55,9 @@ pub enum ServerMessage {
         snowballs: Vec<SnowballState>,
         scores: std::collections::HashMap<Team, u32>,
         ball: Option<BallState>,
+        phase: MatchPhase,
+        time_elapsed: f32,
+        paused: bool
     },
     Pong {
         ts: u64,
@@ -51,7 +76,7 @@ pub struct PlayerState {
     pub pos: [f32; 2],
     pub vel: [f32; 2],
     pub rot_deg: f32,
-    pub team: Team,
+    pub status: PlayerStatus,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -77,7 +102,7 @@ pub async fn handle_connection(
     peers.lock().unwrap().insert(client_id.clone(), tx.clone());
     {
         let mut gs = game_state.lock().unwrap();
-        gs.add_player(client_id.clone());
+        gs.add_spectator(client_id.clone());
     }
 
     let assign = ServerMessage::AssignId {
@@ -106,7 +131,13 @@ pub async fn handle_connection(
                     Ok(ClientMessage::Input { left, right, shoot }) => {
                         // update player's input snapshot in game state
                         let mut gs = game_state_clone.lock().unwrap();
-                        gs.apply_input(&client_id_clone, left, right, shoot);
+                        if let MatchPhase::Playing {
+                            score_limit: _,
+                            time_limit_secs: _,
+                        } = gs.phase
+                        {
+                            gs.apply_input(&client_id_clone, left, right, shoot);
+                        }
                     }
                     Ok(ClientMessage::Ping { ts }) => {
                         // reply Pong
@@ -116,6 +147,53 @@ pub async fn handle_connection(
                                     .unwrap()
                                     .into(),
                             ));
+                        }
+                    }
+                    Ok(ClientMessage::Command { cmd }) => {
+                        let mut gs = game_state_clone.lock().unwrap();
+                        match cmd {
+                            Command::Start {
+                                score_limit,
+                                time_limit_secs,
+                            } => {
+                                // Only allow start from Lobby or Finished
+                                match gs.phase {
+                                    MatchPhase::Lobby | MatchPhase::Finished => {
+                                        gs.start_match(score_limit, time_limit_secs);
+                                    }
+                                    MatchPhase::Playing { .. } => {
+                                        // already playing; optionally send a message back
+                                    }
+                                }
+                            }
+                            Command::Pause => {
+                                println!("got pause");
+                                gs.pause_match();
+                            }
+                            Command::Resume => {
+                                println!("got resume");
+                                gs.resume_match();
+                            }
+                            Command::Stop => {
+                                println!("got stop");
+                                gs.stop_match();
+                            }
+                            Command::LoadMap { data } => {
+                                println!("got load");
+                                gs.load_map(&data);
+                            }
+                            Command::JoinAsPlayer { team } => {
+                                println!("got join team");
+                                if let Some(p) = gs.players.get_mut(&client_id_clone) {
+                                    p.status = PlayerStatus::Playing(team);
+                                }
+                            }
+                            Command::JoinAsSpectator => {
+                                println!("got join spectator");
+                                if let Some(p) = gs.players.get_mut(&client_id_clone) {
+                                    p.status = PlayerStatus::Spectator;
+                                }
+                            }
                         }
                     }
                     Err(e) => {

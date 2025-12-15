@@ -421,7 +421,11 @@ fn handle_map_for_body_player(
         let mask = match obj {
             MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } => mask,
         };
-        if !matches_player(&mask, player.team) {
+        let team = match player.status {
+            crate::PlayerStatus::Spectator => continue,
+            crate::PlayerStatus::Playing(team) => team,
+        };
+        if !matches_player(&mask, team) {
             continue;
         }
         match obj {
@@ -436,7 +440,7 @@ fn handle_map_for_body_player(
             } => {
                 if circle_intersects_circle(pos.x, pos.y, physics.player_radius, *x, *y, *radius) {
                     if *is_hole {
-                        response.players_in_holes.push(player.team);
+                        response.players_in_holes.push(team);
                     } else {
                         let delta = pos - Vec2::new(*x, *y);
                         let dist = delta.length().max(0.0001);
@@ -458,7 +462,7 @@ fn handle_map_for_body_player(
             } => {
                 if circle_intersects_rect(pos.x, pos.y, physics.player_radius, *x, *y, *w, *h) {
                     if *is_hole {
-                        response.players_in_holes.push(player.team);
+                        response.players_in_holes.push(team);
                     } else {
                         let cx = pos.x.clamp(*x, x + w);
                         let cy = pos.y.clamp(*y, y + h);

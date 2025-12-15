@@ -4,7 +4,7 @@ use ggez::{
     graphics::{self, Color, DrawMode, MeshBuilder, Text},
 };
 
-use crate::{map::MapObject, state::GameState};
+use crate::{map::MapObject, network::PlayerStatus, state::GameState};
 
 pub struct Renderer;
 
@@ -154,19 +154,8 @@ impl Renderer {
         canvas.draw(&bar_back, graphics::DrawParam::default());
         canvas.draw(&bar_front, graphics::DrawParam::default());
 
-        let mut y = 20.0;
-        for (id, score) in &state.scores {
-            let text = graphics::Text::new(format!("{}: {}", id, score));
-            canvas.draw(
-                &text,
-                graphics::DrawParam::default().dest(Vec2::new(20.0, y)),
-            );
-            y += 22.0;
-        }
-
         let mesh = graphics::Mesh::from_data(&ctx.gfx, mb.build());
         canvas.draw(&mesh, graphics::DrawParam::default());
-
         canvas.finish(ctx)
     }
 }

@@ -1,4 +1,3 @@
-use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::thread;
@@ -14,9 +13,47 @@ pub enum ClientMessage {
         right: bool,
         shoot: bool,
     },
+
     Ping {
         ts: u64,
     },
+    Command {
+        cmd: ClientCommand,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "cmd")]
+pub enum ClientCommand {
+    Start {
+        score_limit: Option<u32>,
+        time_limit_secs: Option<u32>,
+    },
+    Stop,
+    Pause,
+    Resume,
+    LoadMap {
+        data: String,
+    },
+    JoinAsPlayer {
+        team: Team,
+    },
+    JoinAsSpectator,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum Team {
+    Team1,
+    Team2,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum MatchPhase {
+    Lobby,
+    Playing {
+        score_limit: Option<u32>,
+        time_limit_secs: Option<u32>,
+    },
+    Finished,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -30,6 +67,9 @@ pub enum ServerMessage {
         snowballs: Vec<SnowballState>,
         scores: std::collections::HashMap<String, u32>,
         ball: Option<BallState>,
+        phase: MatchPhase,
+        time_elapsed: f32,
+        paused: bool
     },
     Pong {
         ts: u64,
@@ -48,6 +88,15 @@ pub struct PlayerState {
     pub pos: [f32; 2],
     pub vel: [f32; 2],
     pub rot_deg: f32,
+
+    pub status: PlayerStatus,
+    pub team: Option<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum PlayerStatus {
+    Spectator,
+    Playing(Team),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

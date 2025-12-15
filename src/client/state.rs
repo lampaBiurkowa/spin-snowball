@@ -1,6 +1,6 @@
 use crate::{
     map::GameMap,
-    network::{BallState, PlayerState, SnowballState},
+    network::{BallState, MatchPhase, PlayerState, PlayerStatus, SnowballState},
 };
 use ggez::glam::Vec2;
 use std::collections::HashMap;
@@ -37,6 +37,11 @@ pub struct GameState {
     pub scores: HashMap<String, u32>,
     pub map: GameMap,
     pub friction: f32,
+    pub phase: MatchPhase,
+    pub time_elapsed: f32,
+    pub all_players: Vec<PlayerState>,
+    pub player_status: PlayerStatus,
+    pub paused: bool
 }
 
 impl GameState {
@@ -58,6 +63,11 @@ impl GameState {
             scores: HashMap::new(),
             friction: map.physics.friction_per_frame,
             map,
+            phase: MatchPhase::Lobby,
+            time_elapsed: Default::default(),
+            all_players: vec![],
+            player_status: PlayerStatus::Spectator,
+            paused: Default::default()
         }
     }
 
@@ -67,6 +77,9 @@ impl GameState {
         snowballs: Vec<SnowballState>,
         ball: Option<BallState>,
         scores: HashMap<String, u32>,
+        phase: MatchPhase,
+        time_elapsed: f32,
+        paused: bool
     ) {
         if let Some(id) = &self.player.id {
             for p in &players {
@@ -78,7 +91,18 @@ impl GameState {
             }
         }
 
-        self.other_players = players;
+        self.other_players = players
+            .clone()
+            .into_iter()
+            .filter(|p| {
+                // do not include yourself
+                if Some(&p.id) == self.player.id.as_ref() {
+                    return false;
+                }
+                // do not draw spectators
+                matches!(p.status, PlayerStatus::Playing(_))
+            })
+            .collect();
         self.snowballs = snowballs
             .into_iter()
             .map(|sb| Snowball {
@@ -95,6 +119,16 @@ impl GameState {
             vel: Vec2::new(b.vel[0], b.vel[1]),
             radius: self.map.physics.ball_radius,
         });
+        self.time_elapsed = time_elapsed;
+        self.phase = phase;
+        self.all_players = players.clone();
+        if let Some(me) = players
+            .iter()
+            .find(|p| Some(&p.id) == self.player.id.as_ref())
+        {
+            self.player_status = me.status.clone();
+        }
+        self.paused = paused;
     }
 
     pub fn forward_vector(&self) -> Vec2 {

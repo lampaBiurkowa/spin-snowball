@@ -51,16 +51,14 @@ impl InputState {
 
     pub fn process_key_down(&mut self, key: KeyCode) {
         match key {
-            KeyCode::Left => {
+            KeyCode::ArrowLeft => {
                 if !self.rotating_left {
-                    // start new charge
                     self.spin_timer = 0.0;
                 }
                 self.rotating_left = true;
             }
-            KeyCode::Right => {
+            KeyCode::ArrowRight => {
                 if !self.rotating_right {
-                    // start new charge
                     self.spin_timer = 0.0;
                 }
                 self.rotating_right = true;
@@ -71,13 +69,13 @@ impl InputState {
 
     pub fn process_key_up(&mut self, key: KeyCode) -> Option<PlayerAction> {
         match key {
-            KeyCode::Left if self.rotating_left => {
+            KeyCode::ArrowLeft if self.rotating_left => {
                 self.rotating_left = false;
                 let charge_ratio = (self.spin_timer / 1.5).clamp(0.0, 1.0);
                 self.spin_timer = 0.0;
                 Some(PlayerAction::Shoot(charge_ratio))
             }
-            KeyCode::Right if self.rotating_right => {
+            KeyCode::ArrowRight if self.rotating_right => {
                 self.rotating_right = false;
                 let charge_ratio = (self.spin_timer / 1.5).clamp(0.0, 1.0);
                 self.spin_timer = 0.0;
