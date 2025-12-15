@@ -2,6 +2,7 @@ use ggez::event::{self, EventHandler};
 use ggez::input::keyboard::KeyInput;
 use ggez::winit::keyboard::PhysicalKey;
 use ggez::{Context, ContextBuilder, GameError, GameResult};
+use std::env;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::channel;
 
@@ -218,11 +219,21 @@ impl EventHandler for MainState {
 }
 
 pub fn main() -> GameResult {
-    let (mut ctx, event_loop) = ContextBuilder::new("snowball_spin_net", "you")
-        .window_setup(ggez::conf::WindowSetup::default().title("Snowball Spin - Client"))
-        .window_mode(ggez::conf::WindowMode::default().dimensions(800.0, 600.0))
-        .build()?;
+    let default_addr = "127.0.0.1:9001".to_string();
+    let addr = env::args()
+        .nth(1)
+        .unwrap_or(default_addr);
 
-    let client = MainState::new("127.0.0.1:9001", &mut ctx)?;
+    let (mut ctx, event_loop) = ContextBuilder::new("snowball_spin_net", "you")
+        .window_setup(
+            ggez::conf::WindowSetup::default()
+                .title("Snowball Spin - Client"),
+        )
+        .window_mode(
+            ggez::conf::WindowMode::default()
+                .dimensions(800.0, 600.0),
+        )
+        .build()?;
+    let client = MainState::new(&addr, &mut ctx)?;
     event::run(ctx, event_loop, client)
 }

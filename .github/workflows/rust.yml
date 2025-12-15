@@ -20,11 +20,11 @@ jobs:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            bin_name: client.exe
+            bin_name: spin-snowball-client.exe
 
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            bin_name: client
+            bin_name: spin-snowball-client
 
     steps:
       - name: Checkout repository
