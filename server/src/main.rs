@@ -134,6 +134,9 @@ fn load_map_form_data(data: &str) -> GameMap {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    println!("testtest");
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    println!("testtest2");
     let addr = env::args()
         .nth(1)
         .unwrap_or_else(|| "0.0.0.0:9001".to_string());
