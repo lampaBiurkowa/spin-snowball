@@ -24,5 +24,5 @@ RUN apt-get update && apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/target/release/spin-snowball-server /app/server
-COPY --from=builder /app/tdefault_map.json /app/default_map.json
+COPY --from=builder /app/default_map.json /app/default_map.json
 CMD ["./server"]
