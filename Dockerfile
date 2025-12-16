@@ -7,15 +7,12 @@ RUN apt-get update && apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 
 COPY Cargo.toml Cargo.lock ./
-COPY default_map.json default_map.json
 COPY server/Cargo.toml server/Cargo.toml
 COPY client/Cargo.toml client/Cargo.toml
-RUN mkdir -p server/src && echo "fn main() {}" > server/src/main.rs
-RUN mkdir -p client/src && echo "fn main() {}" > client/src/main.rs
-RUN cargo build --release -p spin-snowball-server
-RUN rm -rf server/src client/src
+COPY default_map.json default_map.json
 COPY server server
 COPY client client
+
 RUN cargo build --release -p spin-snowball-server
 
 FROM debian:bookworm-slim
