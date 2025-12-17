@@ -56,7 +56,6 @@ pub enum MatchPhase {
         score_limit: Option<u32>,
         time_limit_secs: Option<u32>,
     },
-    Finished,
 }
 
 #[derive(Debug, Clone)]
@@ -334,18 +333,11 @@ impl GameState {
 
     pub fn start_match(&mut self, score_limit: Option<u32>, time_limit_secs: Option<u32>) {
         println!("match started: {:?} {:?}", score_limit, time_limit_secs);
-        // Reset scores
+
         self.scores.clear();
         self.scores.insert(Team::Team1, 0);
         self.scores.insert(Team::Team2, 0);
-
-        // Assign spectators into teams in a balanced way
-        self.assign_spectators_to_teams();
-
-        // Reset positions (map-aware)
         self.reset_positions();
-
-        // Reset ball
         if let GameMode::Football = self.map.mode {
             if let Some(b) = &self.map.football {
                 let ball_info = &b.ball;
@@ -356,7 +348,6 @@ impl GameState {
             }
         }
 
-        // Set phase and mark start time
         self.phase = MatchPhase::Playing {
             score_limit,
             time_limit_secs,
@@ -365,11 +356,9 @@ impl GameState {
         self.timer.start();
     }
 
-    /// Stop the match and put everyone back to spectator (freeze state).
     pub fn stop_match(&mut self) {
-        self.phase = MatchPhase::Finished;
+        self.phase = MatchPhase::Lobby;
         self.timer.pause();
-        // Turn every player into spectator
         for p in self.players.values_mut() {
             p.status = PlayerStatus::Spectator;
         }
@@ -389,46 +378,11 @@ impl GameState {
         }
     }
 
-    /// Assign spectators to teams alternatingly, maintaining existing playing players.
-    fn assign_spectators_to_teams(&mut self) {
-        // Count per team so far
-        let mut count_t1 = 0usize;
-        let mut count_t2 = 0usize;
-        for p in self.players.values() {
-            match p.status {
-                PlayerStatus::Playing(Team::Team1) => count_t1 += 1,
-                PlayerStatus::Playing(Team::Team2) => count_t2 += 1,
-                PlayerStatus::Spectator => {}
-            }
-        }
-        // Convert spectators to playing alternating to keep balance
-        let mut flip = count_t1 <= count_t2; // true => assign Team1 next
-        for p in self.players.values_mut() {
-            if let PlayerStatus::Spectator = p.status {
-                if flip {
-                    p.status = PlayerStatus::Playing(Team::Team1);
-                    count_t1 += 1;
-                } else {
-                    p.status = PlayerStatus::Playing(Team::Team2);
-                    count_t2 += 1;
-                }
-                flip = !flip;
-            }
-        }
-
-        // Ensure scores map has entries
-        self.scores.entry(Team::Team1).or_insert(0);
-        self.scores.entry(Team::Team2).or_insert(0);
-    }
-
-    /// Reset positions for players (call after map load or on match start)
     pub fn reset_positions(&mut self) {
         let mut rng = rand::rng();
         for p in self.players.values_mut() {
-            // if playing, try to put them near team side; otherwise random for spectators
             match p.status {
                 PlayerStatus::Playing(Team::Team1) => {
-                    // left side
                     let x = rng
                         .random_range(20.0..(self.map.width * 0.45))
                         .clamp(20.0, self.map.width - 20.0);
@@ -438,7 +392,6 @@ impl GameState {
                     p.rot_deg = -90.0;
                 }
                 PlayerStatus::Playing(Team::Team2) => {
-                    // right side
                     let x = rng
                         .random_range((self.map.width * 0.55)..(self.map.width - 20.0))
                         .clamp(20.0, self.map.width - 20.0);
@@ -468,7 +421,7 @@ impl GameState {
             if let Some(limit) = score_limit {
                 if let Some(&s1) = self.scores.get(&Team::Team1) {
                     if s1 >= *limit {
-                        self.phase = MatchPhase::Finished;
+                        self.phase = MatchPhase::Lobby;
                         self.timer.pause();
                         for p in self.players.values_mut() {
                             p.status = PlayerStatus::Spectator;
@@ -478,7 +431,7 @@ impl GameState {
                 }
                 if let Some(&s2) = self.scores.get(&Team::Team2) {
                     if s2 >= *limit {
-                        self.phase = MatchPhase::Finished;
+                        self.phase = MatchPhase::Lobby;
                         self.timer.pause();
                         for p in self.players.values_mut() {
                             p.status = PlayerStatus::Spectator;
@@ -488,11 +441,10 @@ impl GameState {
                 }
             }
 
-            // Time limit uses the dynamic timer
             if let Some(secs) = time_limit_secs {
                 let elapsed_secs = self.timer.elapsed_secs();
                 if elapsed_secs >= *secs as f32 {
-                    self.phase = MatchPhase::Finished;
+                    self.phase = MatchPhase::Lobby;
                     self.timer.pause();
                     for p in self.players.values_mut() {
                         p.status = PlayerStatus::Spectator;
@@ -547,10 +499,6 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                     simulate_movement(&mut gs, DT);
                     let response = simulate_collisions(&mut gs);
 
-                    gs.logic_step(DT);
-                    simulate_movement(&mut gs, DT);
-                    let response = simulate_collisions(&mut gs);
-
                     for id in response.players_in_holes.into_iter() {
                         if gs.map.mode == GameMode::Fight {
                             if let Some(p) = gs
@@ -587,6 +535,10 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                             ball.vel = Vec2::ZERO;
                         }
                     }
+
+                    if gs.check_end_conditions() {
+                        gs.stop_match();
+                    }
                 }
 
                 let (players, snowballs) = gs.snapshot();
@@ -604,7 +556,6 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                 };
                 let txt = serde_json::to_string(&msg).unwrap();
 
-                // broadcast to all peers
                 let peers_guard = peers.lock().unwrap();
                 for (_id, tx) in peers_guard.iter() {
                     // println!("sending: {txt}");

@@ -156,10 +156,13 @@ pub async fn handle_connection(
                                 score_limit,
                                 time_limit_secs,
                             } => {
-                                // Only allow start from Lobby or Finished
                                 match gs.phase {
-                                    MatchPhase::Lobby | MatchPhase::Finished => {
-                                        gs.start_match(score_limit, time_limit_secs);
+                                    MatchPhase::Lobby => {
+                                        if gs.players.iter().any(|(_, player)| player.status != PlayerStatus::Spectator) {
+                                            gs.start_match(score_limit, time_limit_secs);
+                                        } else {
+                                            println!("Noone belongs to any team - cannot start a match");
+                                        }
                                     }
                                     MatchPhase::Playing { .. } => {
                                         // already playing; optionally send a message back

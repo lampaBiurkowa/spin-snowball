@@ -55,7 +55,7 @@ impl UiState {
     pub fn update(&mut self, state: &GameState, ctx: &mut ggez::Context) {
         let egui_ctx = self.ctx.ctx();
         let match_stopped = matches!(state.phase, MatchPhase::Lobby);
-        let can_start = matches!(state.phase, MatchPhase::Lobby | MatchPhase::Finished);
+        let can_start = matches!(state.phase, MatchPhase::Lobby);
         let can_pause = matches!(state.phase, MatchPhase::Playing { .. }) && !state.paused;
         let can_resume = matches!(state.phase, MatchPhase::Playing { .. }) && state.paused;
         let can_stop = matches!(state.phase, MatchPhase::Playing  { .. });

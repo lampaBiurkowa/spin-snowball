@@ -53,7 +53,6 @@ pub enum MatchPhase {
         score_limit: Option<u32>,
         time_limit_secs: Option<u32>,
     },
-    Finished,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
