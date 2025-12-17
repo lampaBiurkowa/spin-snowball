@@ -1,6 +1,6 @@
 use crate::{
     map::GameMap,
-    network::{BallState, MatchPhase, PlayerState, PlayerStatus, SnowballState},
+    network::{BallState, MatchPhase, PlayerState, PlayerStatus, SnowballState, TeamColor},
 };
 use ggez::glam::Vec2;
 use std::collections::HashMap;
@@ -41,7 +41,9 @@ pub struct GameState {
     pub time_elapsed: f32,
     pub all_players: Vec<PlayerState>,
     pub player_status: PlayerStatus,
-    pub paused: bool
+    pub paused: bool,
+    pub team1_color: TeamColor,
+    pub team2_color: TeamColor,
 }
 
 impl GameState {
@@ -67,7 +69,19 @@ impl GameState {
             time_elapsed: Default::default(),
             all_players: vec![],
             player_status: PlayerStatus::Spectator,
-            paused: Default::default()
+            paused: Default::default(),
+            team1_color: TeamColor {
+                r: 200,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+            team2_color: TeamColor {
+                r: 0,
+                g: 0,
+                b: 200,
+                a: 255,
+            },
         }
     }
 
@@ -79,7 +93,9 @@ impl GameState {
         scores: HashMap<String, u32>,
         phase: MatchPhase,
         time_elapsed: f32,
-        paused: bool
+        paused: bool,
+        team1_color: TeamColor,
+        team2_color: TeamColor,
     ) {
         if let Some(id) = &self.player.id {
             for p in &players {
@@ -129,6 +145,8 @@ impl GameState {
             self.player_status = me.status.clone();
         }
         self.paused = paused;
+        self.team1_color = team1_color;
+        self.team2_color = team2_color;
     }
 
     pub fn forward_vector(&self) -> Vec2 {

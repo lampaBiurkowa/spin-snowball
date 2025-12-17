@@ -3,7 +3,7 @@ use ggez::graphics::{Canvas, DrawParam};
 use std::sync::mpsc::Sender;
 
 use crate::{
-    network::{self, MatchPhase, PlayerStatus},
+    network::{MatchPhase, PlayerState, PlayerStatus, Team, TeamColor},
     state::GameState,
 };
 
@@ -22,6 +22,13 @@ pub enum UIMessage {
         player_id: String,
         status: PlayerStatus,
     },
+    SetNick {
+        nick: String,
+    },
+    SetTeamColor {
+        color: TeamColor,
+        team: Team,
+    },
 }
 
 pub struct UiState {
@@ -32,6 +39,9 @@ pub struct UiState {
     time_limit_enabled: bool,
     time_limit_secs: u32,
     map_path: String,
+    nick_edit: String,
+    team1_color: egui::Color32,
+    team2_color: egui::Color32,
 }
 
 impl UiState {
@@ -44,6 +54,9 @@ impl UiState {
             time_limit_enabled: false,
             time_limit_secs: 300,
             map_path: "default_map.json".to_string(),
+            nick_edit: String::new(),
+            team1_color: egui::Color32::from_rgb(200, 0, 0),
+            team2_color: egui::Color32::from_rgb(0, 0, 200),
         }
     }
 
@@ -52,21 +65,46 @@ impl UiState {
         canvas.draw(&self.ctx, DrawParam::default().dest(glam::Vec2::ZERO));
         canvas.finish(ctx).unwrap();
     }
+
     pub fn update(&mut self, state: &GameState, ctx: &mut ggez::Context) {
         let egui_ctx = self.ctx.ctx();
-        let match_stopped = matches!(state.phase, MatchPhase::Lobby);
-        let can_start = matches!(state.phase, MatchPhase::Lobby);
-        let can_pause = matches!(state.phase, MatchPhase::Playing { .. }) && !state.paused;
-        let can_resume = matches!(state.phase, MatchPhase::Playing { .. }) && state.paused;
-        let can_stop = matches!(state.phase, MatchPhase::Playing  { .. });
 
+        self.draw_top_hud(&egui_ctx, state);
+
+        egui::Window::new("Menu")
+            .default_width(460.0)
+            .show(&egui_ctx, |ui| {
+                self.draw_players_section(ui, state);
+                ui.separator();
+
+                egui::CollapsingHeader::new("Player")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        self.draw_player_section(ui);
+                    });
+
+                egui::CollapsingHeader::new("Team Colors")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        self.draw_team_colors_section(ui);
+                    });
+
+                ui.separator();
+                self.draw_match_settings(ui, state);
+                ui.separator();
+                self.draw_match_controls(ui, state);
+            });
+
+        self.ctx.update(ctx);
+    }
+
+    fn draw_top_hud(&self, egui_ctx: &egui::Context, state: &GameState) {
         egui::TopBottomPanel::top("top_hud")
             .resizable(false)
-            .show(&egui_ctx, |ui| {
+            .show(egui_ctx, |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.label(format!("Phase: {:?}", state.phase));
                     ui.separator();
-
                     ui.label(format!("Time: {:.1}", state.time_elapsed));
                     ui.separator();
 
@@ -75,152 +113,182 @@ impl UiState {
                     }
                 });
             });
-        egui::Window::new("Menu")
-            .default_width(460.0)
-            .show(&egui_ctx, |ui| {
-                ui.heading("Players");
-                ui.separator();
+    }
 
-                let enabled = match_stopped;
+    fn draw_players_section(&mut self, ui: &mut egui::Ui, state: &GameState) {
+        ui.heading("Players");
+        ui.separator();
 
-                ui.columns(3, |cols| {
-                    self.team_column(
-                        &mut cols[0],
-                        "Team 1",
-                        state
-                            .all_players
-                            .iter()
-                            .filter_map(|p| {
-                                matches!(
-                                    p.status,
-                                    network::PlayerStatus::Playing(network::Team::Team1)
-                                )
-                                .then_some(p.id.clone())
-                            })
-                            .collect(),
-                        network::PlayerStatus::Playing(network::Team::Team1),
-                        enabled,
-                    );
+        let enabled = matches!(state.phase, MatchPhase::Lobby);
 
-                    self.team_column(
-                        &mut cols[1],
-                        "Team 2",
-                        state
-                            .all_players
-                            .iter()
-                            .filter_map(|p| {
-                                matches!(
-                                    p.status,
-                                    network::PlayerStatus::Playing(network::Team::Team2)
-                                )
-                                .then_some(p.id.clone())
-                            })
-                            .collect(),
-                        network::PlayerStatus::Playing(network::Team::Team2),
-                        enabled,
-                    );
+        ui.columns(3, |cols| {
+            self.team_column(
+                &mut cols[0],
+                "Team 1",
+                state
+                    .all_players
+                    .iter()
+                    .filter(|p| matches!(p.status, PlayerStatus::Playing(Team::Team1)))
+                    .cloned()
+                    .collect(),
+                PlayerStatus::Playing(Team::Team1),
+                enabled,
+            );
 
-                    self.team_column(
-                        &mut cols[2],
-                        "Spectators",
-                        state
-                            .all_players
-                            .iter()
-                            .filter_map(|p| {
-                                matches!(p.status, network::PlayerStatus::Spectator)
-                                    .then_some(p.id.clone())
-                            })
-                            .collect(),
-                        network::PlayerStatus::Spectator,
-                        enabled,
-                    );
-                });
+            self.team_column(
+                &mut cols[1],
+                "Team 2",
+                state
+                    .all_players
+                    .iter()
+                    .filter(|p| matches!(p.status, PlayerStatus::Playing(Team::Team2)))
+                    .cloned()
+                    .collect(),
+                PlayerStatus::Playing(Team::Team2),
+                enabled,
+            );
 
-                ui.add_space(12.0);
-                ui.separator();
-                ui.add_space(8.0);
+            self.team_column(
+                &mut cols[2],
+                "Spectators",
+                state
+                    .all_players
+                    .iter()
+                    .filter(|p| matches!(p.status, PlayerStatus::Spectator))
+                    .cloned()
+                    .collect(),
+                PlayerStatus::Spectator,
+                enabled,
+            );
+        });
+    }
 
-                ui.heading("Match Settings");
+    fn draw_player_section(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Nick:");
+            let resp = ui.text_edit_singleline(&mut self.nick_edit);
 
-                ui.add_enabled_ui(match_stopped, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.checkbox(&mut self.score_limit_enabled, "Score limit");
-                        ui.add_enabled(
-                            self.score_limit_enabled,
-                            egui::DragValue::new(&mut self.score_limit).clamp_range(1..=100),
-                        );
-                    });
+            if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                || ui.button("Set").clicked()
+            {
+                if !self.nick_edit.trim().is_empty() {
+                    self.sender
+                        .send(UIMessage::SetNick {
+                            nick: self.nick_edit.trim().to_string(),
+                        })
+                        .unwrap();
+                }
+            }
+        });
+    }
 
-                    ui.horizontal(|ui| {
-                        ui.checkbox(&mut self.time_limit_enabled, "Time limit (sec)");
-                        ui.add_enabled(
-                            self.time_limit_enabled,
-                            egui::DragValue::new(&mut self.time_limit_secs).clamp_range(30..=3600),
-                        );
-                    });
+    fn draw_team_colors_section(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Team 1:");
+            if ui.color_edit_button_srgba(&mut self.team1_color).changed() {
+                self.sender
+                    .send(UIMessage::SetTeamColor {
+                        team: Team::Team1,
+                        color: egui_to_server_color(self.team1_color),
+                    })
+                    .unwrap();
+            }
+        });
 
-                    ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            ui.label("Team 2:");
+            if ui.color_edit_button_srgba(&mut self.team2_color).changed() {
+                self.sender
+                    .send(UIMessage::SetTeamColor {
+                        team: Team::Team2,
+                        color: egui_to_server_color(self.team2_color),
+                    })
+                    .unwrap();
+            }
+        });
+    }
 
-                    ui.horizontal(|ui| {
-                        ui.label("Level:");
-                        ui.text_edit_singleline(&mut self.map_path);
-                        if ui.button("Load").clicked() {
-                            self.sender
-                                .send(UIMessage::LoadMap {
-                                    path: self.map_path.clone(),
-                                })
-                                .unwrap();
-                        }
-                    });
-                });
+    fn draw_match_settings(&mut self, ui: &mut egui::Ui, state: &GameState) {
+        let match_stopped = matches!(state.phase, MatchPhase::Lobby);
 
-                ui.add_space(12.0);
-                ui.separator();
-                ui.add_space(8.0);
+        ui.heading("Match Settings");
 
-                ui.horizontal(|ui| {
-                    ui.add_enabled_ui(can_start, |ui| {
-                        if ui.button("Start").clicked() {
-                            self.sender
-                                .send(UIMessage::Start {
-                                    score_limit: self
-                                        .score_limit_enabled
-                                        .then_some(self.score_limit),
-                                    time_limit_secs: self
-                                        .time_limit_enabled
-                                        .then_some(self.time_limit_secs),
-                                })
-                                .unwrap();
-                        }
-                    });
-
-                    ui.add_enabled_ui(can_pause, |ui| {
-                        if ui.button("Pause").clicked() {
-                            self.sender.send(UIMessage::Pause).unwrap();
-                        }
-                    });
-
-                    ui.add_enabled_ui(can_resume, |ui| {
-                        if ui.button("Resume").clicked() {
-                            self.sender.send(UIMessage::Resume).unwrap();
-                        }
-                    });
-
-                    ui.add_enabled_ui(can_stop, |ui| {
-                        if ui.button("Stop").clicked() {
-                            self.sender.send(UIMessage::Stop).unwrap();
-                        }
-                    });
-                });
+        ui.add_enabled_ui(match_stopped, |ui| {
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.score_limit_enabled, "Score limit");
+                ui.add_enabled(
+                    self.score_limit_enabled,
+                    egui::DragValue::new(&mut self.score_limit).clamp_range(1..=100),
+                );
             });
 
-        self.ctx.update(ctx);
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.time_limit_enabled, "Time limit (sec)");
+                ui.add_enabled(
+                    self.time_limit_enabled,
+                    egui::DragValue::new(&mut self.time_limit_secs).clamp_range(30..=3600),
+                );
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("Level:");
+                ui.text_edit_singleline(&mut self.map_path);
+                if ui.button("Load").clicked() {
+                    self.sender
+                        .send(UIMessage::LoadMap {
+                            path: self.map_path.clone(),
+                        })
+                        .unwrap();
+                }
+            });
+        });
     }
+
+    fn draw_match_controls(&mut self, ui: &mut egui::Ui, state: &GameState) {
+        let can_start = matches!(state.phase, MatchPhase::Lobby);
+        let can_pause = matches!(state.phase, MatchPhase::Playing { .. }) && !state.paused;
+        let can_resume = matches!(state.phase, MatchPhase::Playing { .. }) && state.paused;
+        let can_stop = matches!(state.phase, MatchPhase::Playing { .. });
+
+        ui.horizontal(|ui| {
+            ui.add_enabled_ui(can_start, |ui| {
+                if ui.button("Start").clicked() {
+                    self.sender
+                        .send(UIMessage::Start {
+                            score_limit: self.score_limit_enabled.then_some(self.score_limit),
+                            time_limit_secs: self
+                                .time_limit_enabled
+                                .then_some(self.time_limit_secs),
+                        })
+                        .unwrap();
+                }
+            });
+
+            ui.add_enabled_ui(can_pause, |ui| {
+                if ui.button("Pause").clicked() {
+                    self.sender.send(UIMessage::Pause).unwrap();
+                }
+            });
+
+            ui.add_enabled_ui(can_resume, |ui| {
+                if ui.button("Resume").clicked() {
+                    self.sender.send(UIMessage::Resume).unwrap();
+                }
+            });
+
+            ui.add_enabled_ui(can_stop, |ui| {
+                if ui.button("Stop").clicked() {
+                    self.sender.send(UIMessage::Stop).unwrap();
+                }
+            });
+        });
+    }
+
     fn team_column(
         &mut self,
         ui: &mut egui::Ui,
         title: &str,
-        players: Vec<String>,
+        players: Vec<PlayerState>,
         drop_status: PlayerStatus,
         enabled: bool,
     ) {
@@ -257,15 +325,15 @@ impl UiState {
                 }
 
                 // Draw players
-                for id in players {
-                    let response = ui.add(egui::Label::new(&id).sense(if enabled {
+                for p in players {
+                    let response = ui.add(egui::Label::new(&p.nick).sense(if enabled {
                         egui::Sense::drag()
                     } else {
                         egui::Sense::hover()
                     }));
 
                     if enabled && response.drag_started() {
-                        egui::DragAndDrop::set_payload(ui.ctx(), id.clone());
+                        egui::DragAndDrop::set_payload(ui.ctx(), p.id.clone());
                     }
                 }
             });
@@ -273,5 +341,14 @@ impl UiState {
 
     pub(crate) fn text_input_event(&mut self, ctx: &mut ggez::Context, character: char) {
         self.ctx.input.text_input_event(character, ctx);
+    }
+}
+
+fn egui_to_server_color(c: egui::Color32) -> TeamColor {
+    TeamColor {
+        r: c.r(),
+        g: c.g(),
+        b: c.b(),
+        a: c.a(),
     }
 }

@@ -10,7 +10,9 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::map::{GameMap, GameMode};
-use crate::network::{BallState, PlayerState, ServerMessage, SnowballState, handle_connection};
+use crate::network::{
+    handle_connection, BallState, PlayerState, ServerMessage, SnowballState, TeamColor,
+};
 use crate::physics::{simulate_collisions, simulate_movement};
 
 mod map;
@@ -22,6 +24,7 @@ const DT: f32 = 1.0 / TICK_HZ;
 
 struct Player {
     id: String,
+    nick: String,
     pos: Vec2,
     vel: Vec2,
     rot_deg: f32,
@@ -180,6 +183,8 @@ struct GameState {
     phase: MatchPhase,
     timer: MatchTimer,
     paused: bool,
+    team1_color: TeamColor,
+    team2_color: TeamColor,
 }
 
 impl GameState {
@@ -206,10 +211,22 @@ impl GameState {
             phase: MatchPhase::Lobby,
             timer: MatchTimer::new(),
             paused: false,
+            team1_color: TeamColor {
+                r: 200,
+                g: 0,
+                b: 0,
+                a: 255,
+            },
+            team2_color: TeamColor {
+                r: 0,
+                g: 0,
+                b: 200,
+                a: 255,
+            },
         }
     }
 
-    pub fn add_spectator(&mut self, id: String) {
+    pub fn add_new_player(&mut self, id: String) {
         let pos = Vec2::new(
             rand::random::<f32>() * (self.map.width - 40.0) + 20.0,
             rand::random::<f32>() * (self.map.height - 40.0) + 20.0,
@@ -219,6 +236,7 @@ impl GameState {
             id.clone(),
             Player {
                 id,
+                nick: format!("Player {}", self.players.len() + 1),
                 pos,
                 vel: Vec2::ZERO,
                 rot_deg: -90.0,
@@ -305,6 +323,7 @@ impl GameState {
             .values()
             .map(|p| PlayerState {
                 id: p.id.clone(),
+                nick: p.nick.clone(),
                 pos: [p.pos.x, p.pos.y],
                 vel: [p.vel.x, p.vel.y],
                 rot_deg: p.rot_deg,
@@ -479,7 +498,9 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                         scores: gs.scores.clone(),
                         phase: gs.phase.clone(),
                         time_elapsed: gs.timer.elapsed_secs(),
-                        paused: gs.paused
+                        paused: gs.paused,
+                        team1_color: gs.team1_color.clone(),
+                        team2_color: gs.team2_color.clone(),
                     };
                     let txt = serde_json::to_string(&msg).unwrap();
 
@@ -552,7 +573,9 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                     scores: gs.scores.clone(),
                     phase: gs.phase.clone(),
                     time_elapsed: gs.timer.elapsed_secs(),
-                    paused: gs.paused
+                    paused: gs.paused,
+                    team1_color: gs.team1_color.clone(),
+                    team2_color: gs.team2_color.clone(),
                 };
                 let txt = serde_json::to_string(&msg).unwrap();
 

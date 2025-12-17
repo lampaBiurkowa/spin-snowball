@@ -100,6 +100,16 @@ impl MainState {
                         }
                     }
                 }
+                UIMessage::SetNick { nick } => {
+                    self.network.send(ClientMessage::Command {
+                        cmd: ClientCommand::SetNick { nick },
+                    });
+                }
+                UIMessage::SetTeamColor { color, team } => {
+                    self.network.send(ClientMessage::Command {
+                        cmd: ClientCommand::SetTeamColor { color, team },
+                    });
+                }
             }
         }
     }
@@ -146,7 +156,9 @@ impl EventHandler for MainState {
                     scores,
                     phase,
                     time_elapsed,
-                    paused
+                    paused,
+                    team1_color,
+                    team2_color,
                 } => {
                     self.game.apply_world_state(
                         players,
@@ -155,7 +167,9 @@ impl EventHandler for MainState {
                         scores,
                         phase,
                         time_elapsed,
-                        paused
+                        paused,
+                        team1_color,
+                        team2_color,
                     );
                 }
                 network::ServerMessage::Pong { .. } => {}
@@ -199,7 +213,7 @@ impl EventHandler for MainState {
     fn key_up_event(&mut self, _ctx: &mut Context, input: KeyInput) -> Result<(), GameError> {
         if let PhysicalKey::Code(keycode) = input.event.physical_key {
             if let Some(action) = self.input.process_key_up(keycode) {
-                if let PlayerAction::Shoot(charge) = action {
+                if let PlayerAction::Shoot(_) = action {
                     self.network.send(ClientMessage::Input {
                         left: false,
                         right: false,
@@ -220,19 +234,11 @@ impl EventHandler for MainState {
 
 pub fn main() -> GameResult {
     let default_addr = "127.0.0.1:9001".to_string();
-    let addr = env::args()
-        .nth(1)
-        .unwrap_or(default_addr);
+    let addr = env::args().nth(1).unwrap_or(default_addr);
 
     let (mut ctx, event_loop) = ContextBuilder::new("snowball_spin_net", "you")
-        .window_setup(
-            ggez::conf::WindowSetup::default()
-                .title("Snowball Spin - Client"),
-        )
-        .window_mode(
-            ggez::conf::WindowMode::default()
-                .dimensions(800.0, 600.0),
-        )
+        .window_setup(ggez::conf::WindowSetup::default().title("Snowball Spin - Client"))
+        .window_mode(ggez::conf::WindowMode::default().dimensions(800.0, 600.0))
         .build()?;
     let client = MainState::new(&addr, &mut ctx)?;
     event::run(ctx, event_loop, client)

@@ -1,10 +1,14 @@
 use ggez::{
     Context, GameResult,
     glam::Vec2,
-    graphics::{self, Color, DrawMode, MeshBuilder, Text},
+    graphics::{self, Color, DrawMode, MeshBuilder, Text, TextFragment},
 };
 
-use crate::{map::MapObject, network::PlayerStatus, state::GameState};
+use crate::{
+    map::MapObject,
+    network::{PlayerStatus, Team},
+    state::GameState,
+};
 
 pub struct Renderer;
 
@@ -80,23 +84,40 @@ impl Renderer {
             if Some(&p.id) == state.player.id.as_ref() {
                 continue;
             }
-            mb.circle(
-                DrawMode::fill(),
-                Vec2::new(p.pos[0], p.pos[1]),
-                16.0,
-                0.5,
-                Color::from_rgb(180, 180, 220),
-            )?;
+            if let PlayerStatus::Playing(team) = p.status {
+                let color = player_color(state, team);
+
+                mb.circle(
+                    DrawMode::fill(),
+                    Vec2::new(p.pos[0], p.pos[1]),
+                    16.0,
+                    0.5,
+                    color,
+                )?;
+
+                let text = Text::new(
+                    TextFragment::new(p.nick.clone())
+                        .color(Color::WHITE)
+                        .scale(14.0),
+                );
+
+                let dims = text.measure(ctx)?;
+                let text_pos = Vec2::new(p.pos[0] - dims.x / 2.0, p.pos[1] + 16.0 + 4.0);
+                canvas.draw(&text, graphics::DrawParam::default().dest(text_pos).z(100));
+            }
         }
 
-        // Local player
-        mb.circle(
-            DrawMode::fill(),
-            state.player.pos,
-            state.player.radius,
-            0.5,
-            Color::from_rgb(200, 200, 255),
-        )?;
+        if let PlayerStatus::Playing(team) = state.player_status {
+            let color = player_color(state, team);
+            // Local player
+            mb.circle(
+                DrawMode::fill(),
+                state.player.pos,
+                state.player.radius,
+                0.5,
+                color,
+            )?;
+        }
 
         // direction indicator triangle for local player
         let dir = state.forward_vector();
@@ -157,5 +178,22 @@ impl Renderer {
         let mesh = graphics::Mesh::from_data(&ctx.gfx, mb.build());
         canvas.draw(&mesh, graphics::DrawParam::default());
         canvas.finish(ctx)
+    }
+}
+
+fn player_color(state: &GameState, team: Team) -> Color {
+    match team {
+        Team::Team1 => Color {
+            r: state.team1_color.r as f32 / 255.0,
+            g: state.team1_color.g as f32 / 255.0,
+            b: state.team1_color.b as f32 / 255.0,
+            a: state.team1_color.a as f32 / 255.0,
+        },
+        Team::Team2 => Color {
+            r: state.team2_color.r as f32 / 255.0,
+            g: state.team2_color.g as f32 / 255.0,
+            b: state.team2_color.b as f32 / 255.0,
+            a: state.team2_color.a as f32 / 255.0,
+        },
     }
 }

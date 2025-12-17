@@ -33,10 +33,6 @@ impl CharInput {
         self.pressed = currently_down;
         out
     }
-
-    pub fn clear(&mut self) {
-        self.pressed.clear();
-    }
 }
 
 fn smolstr_to_char(s: &SmolStr) -> Option<char> {

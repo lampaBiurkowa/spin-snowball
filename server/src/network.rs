@@ -42,6 +42,21 @@ pub enum Command {
         team: Team,
     },
     JoinAsSpectator,
+    SetNick {
+        nick: String,
+    },
+    SetTeamColor {
+        color: TeamColor,
+        team: Team,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TeamColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,7 +72,9 @@ pub enum ServerMessage {
         ball: Option<BallState>,
         phase: MatchPhase,
         time_elapsed: f32,
-        paused: bool
+        paused: bool,
+        team1_color: TeamColor,
+        team2_color: TeamColor,
     },
     Pong {
         ts: u64,
@@ -73,6 +90,7 @@ pub struct BallState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PlayerState {
     pub id: String,
+    pub nick: String,
     pub pos: [f32; 2],
     pub vel: [f32; 2],
     pub rot_deg: f32,
@@ -102,7 +120,7 @@ pub async fn handle_connection(
     peers.lock().unwrap().insert(client_id.clone(), tx.clone());
     {
         let mut gs = game_state.lock().unwrap();
-        gs.add_spectator(client_id.clone());
+        gs.add_new_player(client_id.clone());
     }
 
     let assign = ServerMessage::AssignId {
@@ -158,10 +176,14 @@ pub async fn handle_connection(
                             } => {
                                 match gs.phase {
                                     MatchPhase::Lobby => {
-                                        if gs.players.iter().any(|(_, player)| player.status != PlayerStatus::Spectator) {
+                                        if gs.players.iter().any(|(_, player)| {
+                                            player.status != PlayerStatus::Spectator
+                                        }) {
                                             gs.start_match(score_limit, time_limit_secs);
                                         } else {
-                                            println!("Noone belongs to any team - cannot start a match");
+                                            println!(
+                                                "Noone belongs to any team - cannot start a match"
+                                            );
                                         }
                                     }
                                     MatchPhase::Playing { .. } => {
@@ -195,6 +217,19 @@ pub async fn handle_connection(
                                 println!("got join spectator");
                                 if let Some(p) = gs.players.get_mut(&client_id_clone) {
                                     p.status = PlayerStatus::Spectator;
+                                }
+                            }
+                            Command::SetNick { nick } => {
+                                println!("got set nick: {nick}");
+                                if let Some(p) = gs.players.get_mut(&client_id_clone) {
+                                    p.nick = nick;
+                                }
+                            }
+                            Command::SetTeamColor { color, team } => {
+                                println!("got set team color: {color:?}, {team:?}");
+                                match team {
+                                    Team::Team1 => gs.team1_color = color,
+                                    Team::Team2 => gs.team2_color = color,
                                 }
                             }
                         }

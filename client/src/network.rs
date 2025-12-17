@@ -39,6 +39,13 @@ pub enum ClientCommand {
         team: Team,
     },
     JoinAsSpectator,
+    SetNick {
+        nick: String,
+    },
+    SetTeamColor {
+        color: TeamColor,
+        team: Team,
+    },
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Team {
@@ -56,6 +63,14 @@ pub enum MatchPhase {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TeamColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum ServerMessage {
     AssignId {
@@ -68,7 +83,9 @@ pub enum ServerMessage {
         ball: Option<BallState>,
         phase: MatchPhase,
         time_elapsed: f32,
-        paused: bool
+        paused: bool,
+        team1_color: TeamColor,
+        team2_color: TeamColor,
     },
     Pong {
         ts: u64,
@@ -84,6 +101,7 @@ pub struct BallState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PlayerState {
     pub id: String,
+    pub nick: String,
     pub pos: [f32; 2],
     pub vel: [f32; 2],
     pub rot_deg: f32,

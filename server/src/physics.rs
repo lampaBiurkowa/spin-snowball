@@ -1,8 +1,8 @@
 use glam::Vec2;
 
 use crate::{
+    map::{matches_ball, matches_player, MapObject, PhysicsSettings},
     Ball, GameState, Team,
-    map::{MapObject, PhysicsSettings, matches_ball, matches_player},
 };
 
 pub struct SimulateCollisionResponse {
