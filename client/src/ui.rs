@@ -1,11 +1,9 @@
 use ggegui::egui;
 use ggez::graphics::{Canvas, DrawParam};
+use spin_snowball_shared::*;
 use std::sync::mpsc::Sender;
 
-use crate::{
-    network::{MatchPhase, PlayerState, PlayerStatus, Team, TeamColor},
-    state::GameState,
-};
+use crate::state::GameState;
 
 pub enum UIMessage {
     Start {

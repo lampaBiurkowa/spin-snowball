@@ -1,9 +1,7 @@
 use glam::Vec2;
+use spin_snowball_shared::*;
 
-use crate::{
-    map::{matches_ball, matches_player, MapObject, PhysicsSettings},
-    Ball, GameState, Team,
-};
+use crate::{Ball, GameState};
 
 pub struct SimulateCollisionResponse {
     pub players_in_holes: Vec<Team>,
@@ -422,8 +420,8 @@ fn handle_map_for_body_player(
             MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } => mask,
         };
         let team = match player.status {
-            crate::PlayerStatus::Spectator => continue,
-            crate::PlayerStatus::Playing(team) => team,
+            PlayerStatus::Spectator => continue,
+            PlayerStatus::Playing(team) => team,
         };
         if !matches_player(&mask, team) {
             continue;

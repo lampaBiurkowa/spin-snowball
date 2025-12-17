@@ -2839,6 +2839,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
+ "spin-snowball-shared",
  "tokio",
  "tokio-tungstenite",
  "tungstenite",
@@ -2856,10 +2857,19 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
+ "spin-snowball-shared",
  "tokio",
  "tokio-tungstenite",
  "tungstenite",
  "uuid",
+]
+
+[[package]]
+name = "spin-snowball-shared"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

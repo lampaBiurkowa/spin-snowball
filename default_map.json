@@ -15,6 +15,14 @@
     "snowball_bounciness": 0.9,
     "friction_per_frame": 0.98
   },
+  "team1": {
+    "spawn_x": 200,
+    "spawn_y": 200
+  },
+  "team2": {
+    "spawn_x": 600,
+    "spawn_y": 200
+  },
   "football": {
     "ball": {
       "spawn_x": 200,

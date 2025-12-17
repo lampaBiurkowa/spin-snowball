@@ -2,12 +2,12 @@ use ggez::event::{self, EventHandler};
 use ggez::input::keyboard::KeyInput;
 use ggez::winit::keyboard::PhysicalKey;
 use ggez::{Context, ContextBuilder, GameError, GameResult};
+use spin_snowball_shared::*;
 use std::env;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::channel;
 
 mod input;
-mod map;
 mod network;
 mod physics;
 mod rendering;
@@ -22,7 +22,6 @@ use rendering::Renderer;
 use state::GameState;
 
 use crate::input::PlayerAction;
-use crate::network::{ClientCommand, ClientMessage};
 use crate::text_input_workaround::CharInput;
 use crate::ui::{UIMessage, UiState};
 
@@ -40,12 +39,10 @@ impl MainState {
     fn new(server_addr: &str, mut ctx: &mut Context) -> GameResult<Self> {
         // Load map
         let map_data = std::fs::read_to_string("default_map.json")?;
-        let map: map::GameMap = serde_json::from_str(&map_data).unwrap();
+        let map: GameMap = serde_json::from_str(&map_data).unwrap();
         let network = NetworkClient::new(server_addr);
         network.send(ClientMessage::Command {
-            cmd: ClientCommand::JoinAsPlayer {
-                team: network::Team::Team1,
-            },
+            cmd: Command::JoinAsPlayer { team: Team::Team1 },
         });
         let (tx, rx) = channel();
         Ok(Self {
@@ -63,38 +60,36 @@ impl MainState {
         while let Ok(x) = self.ui_events_rx.try_recv() {
             match x {
                 UIMessage::Pause => self.network.send(ClientMessage::Command {
-                    cmd: ClientCommand::Pause,
+                    cmd: Command::Pause,
                 }),
                 UIMessage::Start {
                     score_limit,
                     time_limit_secs,
                 } => self.network.send(ClientMessage::Command {
-                    cmd: ClientCommand::Start {
+                    cmd: Command::Start {
                         score_limit,
                         time_limit_secs,
                     },
                 }),
-                UIMessage::Stop => self.network.send(ClientMessage::Command {
-                    cmd: ClientCommand::Stop,
-                }),
+                UIMessage::Stop => self
+                    .network
+                    .send(ClientMessage::Command { cmd: Command::Stop }),
                 UIMessage::Resume => self.network.send(ClientMessage::Command {
-                    cmd: ClientCommand::Resume,
+                    cmd: Command::Resume,
                 }),
                 UIMessage::LoadMap { path } => {
                     let data = std::fs::read_to_string(path).unwrap();
                     self.game.map = serde_json::from_str(&data).unwrap();
                     self.network.send(ClientMessage::Command {
-                        cmd: ClientCommand::LoadMap { data },
+                        cmd: Command::LoadMap { data },
                     });
                 }
                 UIMessage::JoinTeam { player_id, status } => {
                     if let Some(own_id) = &self.game.player.id {
                         if player_id == *own_id {
                             let cmd = match status {
-                                network::PlayerStatus::Spectator => ClientCommand::JoinAsSpectator,
-                                network::PlayerStatus::Playing(team) => {
-                                    ClientCommand::JoinAsPlayer { team }
-                                }
+                                PlayerStatus::Spectator => Command::JoinAsSpectator,
+                                PlayerStatus::Playing(team) => Command::JoinAsPlayer { team },
                             };
                             self.network.send(ClientMessage::Command { cmd });
                         }
@@ -102,12 +97,12 @@ impl MainState {
                 }
                 UIMessage::SetNick { nick } => {
                     self.network.send(ClientMessage::Command {
-                        cmd: ClientCommand::SetNick { nick },
+                        cmd: Command::SetNick { nick },
                     });
                 }
                 UIMessage::SetTeamColor { color, team } => {
                     self.network.send(ClientMessage::Command {
-                        cmd: ClientCommand::SetTeamColor { color, team },
+                        cmd: Command::SetTeamColor { color, team },
                     });
                 }
             }
@@ -146,10 +141,10 @@ impl EventHandler for MainState {
         // Handle incoming network state
         if let Some(msg) = self.network.poll() {
             match msg {
-                network::ServerMessage::AssignId { id } => {
+                ServerMessage::AssignId { id } => {
                     self.game.player.id = Some(id);
                 }
-                network::ServerMessage::WorldState {
+                ServerMessage::WorldState {
                     players,
                     snowballs,
                     ball,
@@ -172,7 +167,7 @@ impl EventHandler for MainState {
                         team2_color,
                     );
                 }
-                network::ServerMessage::Pong { .. } => {}
+                ServerMessage::Pong { .. } => {}
             }
         }
 
@@ -181,7 +176,7 @@ impl EventHandler for MainState {
 
         // Optional: ping server for latency measurements
         if ctx.time.ticks() % 300 == 0 {
-            self.network.send(network::ClientMessage::Ping { ts: 0 });
+            self.network.send(ClientMessage::Ping { ts: 0 });
         }
 
         for c in self.char_input.collect(ctx) {
@@ -200,7 +195,7 @@ impl EventHandler for MainState {
 
     fn key_down_event(
         &mut self,
-        ctx: &mut Context,
+        _ctx: &mut Context,
         input: KeyInput,
         _repeat: bool,
     ) -> Result<(), GameError> {

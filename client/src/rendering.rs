@@ -3,12 +3,9 @@ use ggez::{
     glam::Vec2,
     graphics::{self, Color, DrawMode, MeshBuilder, Text, TextFragment},
 };
+use spin_snowball_shared::*;
 
-use crate::{
-    map::MapObject,
-    network::{PlayerStatus, Team},
-    state::GameState,
-};
+use crate::state::GameState;
 
 pub struct Renderer;
 
@@ -31,6 +28,7 @@ impl Renderer {
                     factor,
                     color,
                     is_hole,
+                    mask: _,
                 } => {
                     let c = Color::from_rgba(
                         (color.r * 255.0) as u8,
@@ -50,6 +48,7 @@ impl Renderer {
                     factor,
                     color,
                     is_hole,
+                    mask: _,
                 } => {
                     let c = Color::from_rgba(
                         (color.r * 255.0) as u8,

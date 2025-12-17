@@ -9,9 +9,11 @@ RUN apt-get update && apt-get install -y \
 COPY Cargo.toml Cargo.lock ./
 COPY server/Cargo.toml server/Cargo.toml
 COPY client/Cargo.toml client/Cargo.toml
+COPY shared/Cargo.toml shared/Cargo.toml
 COPY default_map.json default_map.json
 COPY server server
 COPY client client
+COPY shared shared
 
 RUN cargo build --release -p spin-snowball-server
 

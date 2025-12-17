@@ -1,8 +1,5 @@
-use crate::{
-    map::GameMap,
-    network::{BallState, MatchPhase, PlayerState, PlayerStatus, SnowballState, TeamColor},
-};
 use ggez::glam::Vec2;
+use spin_snowball_shared::*;
 use std::collections::HashMap;
 
 pub struct Player {
@@ -90,7 +87,7 @@ impl GameState {
         players: Vec<PlayerState>,
         snowballs: Vec<SnowballState>,
         ball: Option<BallState>,
-        scores: HashMap<String, u32>,
+        scores: HashMap<Team, u32>,
         phase: MatchPhase,
         time_elapsed: f32,
         paused: bool,
@@ -128,7 +125,7 @@ impl GameState {
                 life: sb.life,
             })
             .collect();
-        self.scores = scores;
+        self.scores = scores.iter().map(|(x, y)| (format!("{x:?}"), *y)).collect();
 
         self.ball = ball.map(|b| Ball {
             pos: Vec2::new(b.pos[0], b.pos[1]),

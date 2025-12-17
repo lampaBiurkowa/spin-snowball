@@ -5,17 +5,15 @@ use std::time::{Duration, Instant};
 
 use glam::Vec2;
 use rand::Rng;
+use spin_snowball_shared::*;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::map::{GameMap, GameMode};
-use crate::network::{
-    handle_connection, BallState, PlayerState, ServerMessage, SnowballState, TeamColor,
-};
+// use crate::map::{GameMap, GameMode};
+use crate::network::handle_connection;
 use crate::physics::{simulate_collisions, simulate_movement};
 
-mod map;
 mod network;
 mod physics;
 
@@ -40,25 +38,6 @@ struct Snowball {
     pos: Vec2,
     vel: Vec2,
     life: f32,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub enum Team {
-    Team1,
-    Team2,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-enum PlayerStatus {
-    Spectator,
-    Playing(Team),
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub enum MatchPhase {
-    Lobby,
-    Playing {
-        score_limit: Option<u32>,
-        time_limit_secs: Option<u32>,
-    },
 }
 
 #[derive(Debug, Clone)]
@@ -402,19 +381,15 @@ impl GameState {
         for p in self.players.values_mut() {
             match p.status {
                 PlayerStatus::Playing(Team::Team1) => {
-                    let x = rng
-                        .random_range(20.0..(self.map.width * 0.45))
-                        .clamp(20.0, self.map.width - 20.0);
-                    let y = rng.random_range(20.0..(self.map.height - 20.0));
+                    let x = self.map.team1.spawn_x;
+                    let y = self.map.team1.spawn_y;
                     p.pos = Vec2::new(x, y);
                     p.vel = Vec2::ZERO;
                     p.rot_deg = -90.0;
                 }
                 PlayerStatus::Playing(Team::Team2) => {
-                    let x = rng
-                        .random_range((self.map.width * 0.55)..(self.map.width - 20.0))
-                        .clamp(20.0, self.map.width - 20.0);
-                    let y = rng.random_range(20.0..(self.map.height - 20.0));
+                    let x = self.map.team2.spawn_x;
+                    let y = self.map.team2.spawn_y;
                     p.pos = Vec2::new(x, y);
                     p.vel = Vec2::ZERO;
                     p.rot_deg = -90.0;

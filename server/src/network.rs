@@ -1,109 +1,13 @@
 use std::sync::{Arc, Mutex};
 
 use futures::{SinkExt, StreamExt};
-use serde::{Deserialize, Serialize};
+use spin_snowball_shared::*;
 use tokio::{net::TcpStream, sync::mpsc};
 use tokio_tungstenite::accept_async;
 use tungstenite::Message;
 use uuid::Uuid;
 
 use crate::{GameState, MatchPhase, PeerMap, PlayerStatus, Team};
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
-pub enum ClientMessage {
-    Input {
-        left: bool,
-        right: bool,
-        shoot: bool,
-    },
-    Ping {
-        ts: u64,
-    },
-    Command {
-        cmd: Command,
-    },
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "cmd")]
-pub enum Command {
-    Start {
-        score_limit: Option<u32>,
-        time_limit_secs: Option<u32>,
-    },
-    Stop,
-    Pause,
-    Resume,
-    LoadMap {
-        data: String,
-    },
-    JoinAsPlayer {
-        team: Team,
-    },
-    JoinAsSpectator,
-    SetNick {
-        nick: String,
-    },
-    SetTeamColor {
-        color: TeamColor,
-        team: Team,
-    },
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TeamColor {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
-pub enum ServerMessage {
-    AssignId {
-        id: String,
-    },
-    WorldState {
-        players: Vec<PlayerState>,
-        snowballs: Vec<SnowballState>,
-        scores: std::collections::HashMap<Team, u32>,
-        ball: Option<BallState>,
-        phase: MatchPhase,
-        time_elapsed: f32,
-        paused: bool,
-        team1_color: TeamColor,
-        team2_color: TeamColor,
-    },
-    Pong {
-        ts: u64,
-    },
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BallState {
-    pub pos: [f32; 2],
-    pub vel: [f32; 2],
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PlayerState {
-    pub id: String,
-    pub nick: String,
-    pub pos: [f32; 2],
-    pub vel: [f32; 2],
-    pub rot_deg: f32,
-    pub status: PlayerStatus,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnowballState {
-    pub id: u64,
-    pub pos: [f32; 2],
-    pub vel: [f32; 2],
-    pub life: f32,
-}
 
 pub async fn handle_connection(
     stream: TcpStream,
