@@ -2831,17 +2831,12 @@ dependencies = [
 name = "spin-snowball-client"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "futures",
  "ggegui",
  "ggez",
  "glam",
- "rand",
- "serde",
  "serde_json",
  "spin-snowball-shared",
  "tokio",
- "tokio-tungstenite",
  "tungstenite",
  "url",
  "uuid",
@@ -2855,7 +2850,6 @@ dependencies = [
  "futures",
  "glam",
  "rand",
- "serde",
  "serde_json",
  "spin-snowball-shared",
  "tokio",
