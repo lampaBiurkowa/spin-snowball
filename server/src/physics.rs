@@ -84,13 +84,18 @@ impl Body for Ball {
 
 pub fn simulate_movement(game_state: &mut GameState, dt: f32) {
     for (_id, p) in game_state.players.iter_mut() {
+        let max_charge_time = 1.5;
+        let base_rot_speed = 180.0;     
+        let max_rot_speed = 440.0;
+        let t = (p.spin_timer / max_charge_time).min(1.0);
+        let rot_speed = base_rot_speed + (max_rot_speed - base_rot_speed) * t;
         // rotation
         if p.rotating_left {
-            p.rot_deg -= 180.0 * dt;
+            p.rot_deg -= rot_speed  * dt;
             p.spin_timer += dt;
         }
         if p.rotating_right {
-            p.rot_deg += 180.0 * dt;
+            p.rot_deg += rot_speed  * dt;
             p.spin_timer += dt;
         }
 
@@ -233,6 +238,12 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
         // we need the original position for collision checks to avoid mutable borrow issues
         if let Some(sb_snapshot) = game_state.snowballs.get(sid).map(|s| s.pos) {
             for obj in &game_state.map.objects {
+                let mask = match obj {
+                    MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } => mask,
+                };
+                if !matches_snowball(&mask) {
+                    continue;
+                }
                 match obj {
                     MapObject::Circle {
                         x,

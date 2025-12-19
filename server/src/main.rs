@@ -247,8 +247,8 @@ impl GameState {
                     // spawn based on current rotation & spin_timer
                     let charge = p.spin_timer.min(1.5);
                     let charge_t = charge / 1.5;
-                    let base_speed = 280.0;
-                    let snowball_speed = base_speed + 400.0 * charge_t;
+                    let base_speed = 300.0;
+                    let snowball_speed = base_speed + 700.0 * charge_t;
 
                     let r = p.rot_deg.to_radians();
                     let dir = Vec2::new(r.cos(), r.sin());
@@ -262,7 +262,7 @@ impl GameState {
                             id,
                             pos: spawn_pos,
                             vel: dir * snowball_speed,
-                            life: 2.0,
+                            life: self.map.physics.snowball_lifetime_sec,
                         },
                     );
 
@@ -394,13 +394,14 @@ impl GameState {
                     p.vel = Vec2::ZERO;
                     p.rot_deg = -90.0;
                 }
-                PlayerStatus::Spectator => {
-                    let x = rng.random_range(20.0..(self.map.width - 20.0));
-                    let y = rng.random_range(20.0..(self.map.height - 20.0));
-                    p.pos = Vec2::new(x, y);
-                    p.vel = Vec2::ZERO;
-                    p.rot_deg = -90.0;
-                }
+                PlayerStatus::Spectator => ()
+            }
+        }
+        
+        if let Some(x) = self.map.football.clone() {
+            if let Some(ball) = &mut self.ball {
+                ball.pos = Vec2::new(x.ball.spawn_x, x.ball.spawn_y);
+                ball.vel = Vec2::ZERO;
             }
         }
     }
@@ -525,11 +526,7 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                         }; // Convert raw number from collision detection
                         *gs.scores.entry(team).or_insert(0) += 1;
 
-                        let b = gs.map.football.clone().unwrap().ball;
-                        if let Some(ball) = &mut gs.ball {
-                            ball.pos = Vec2::new(b.spawn_x, b.spawn_y);
-                            ball.vel = Vec2::ZERO;
-                        }
+                        gs.reset_positions();
                     }
 
                     if gs.check_end_conditions() {

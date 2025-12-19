@@ -30,7 +30,7 @@ pub struct GameState {
     pub other_players: Vec<PlayerState>,
     pub snowballs: Vec<Snowball>,
     pub ball: Option<Ball>,
-    pub scores: HashMap<String, u32>,
+    pub scores: HashMap<Team, u32>,
     pub map: GameMap,
     pub friction: f32,
     pub phase: MatchPhase,
@@ -123,7 +123,7 @@ impl GameState {
                 life: sb.life,
             })
             .collect();
-        self.scores = scores.iter().map(|(x, y)| (format!("{x:?}"), *y)).collect();
+        self.scores = scores;
 
         self.ball = ball.map(|b| Ball {
             pos: Vec2::new(b.pos[0], b.pos[1]),

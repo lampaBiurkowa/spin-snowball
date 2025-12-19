@@ -3,7 +3,7 @@ use ggez::input::keyboard::KeyInput;
 use ggez::winit::keyboard::PhysicalKey;
 use ggez::{Context, ContextBuilder, GameError, GameResult};
 use spin_snowball_shared::*;
-use std::env;
+use std::{env, fs};
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::channel;
 
@@ -240,7 +240,13 @@ impl EventHandler for MainState {
 
 pub fn main() -> GameResult {
     let default_addr = "127.0.0.1:9001".to_string();
-    let addr = env::args().nth(1).unwrap_or(default_addr);
+    let mut addr = env::args().nth(1).unwrap_or(default_addr);
+    if let Ok(contents) = fs::read_to_string("server.txt") {
+        let trimmed = contents.trim();
+        if !trimmed.is_empty() {
+            addr = trimmed.to_string();
+        }
+    }
 
     let (mut ctx, event_loop) = ContextBuilder::new("snowball_spin_net", "you")
         .window_setup(ggez::conf::WindowSetup::default().title("Snowball Spin - Client"))

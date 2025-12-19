@@ -141,7 +141,7 @@ impl Renderer {
         // snowballs
         for sb in &state.snowballs {
             let c = { Color::WHITE };
-            mb.circle(DrawMode::fill(), Vec2::new(sb.pos.x, sb.pos.y), 6.0, 0.5, c)?;
+            mb.circle(DrawMode::fill(), Vec2::new(sb.pos.x, sb.pos.y), state.map.physics.snowball_radius, 0.5, c)?;
         }
 
         if let Some(ball) = &state.ball {
@@ -152,6 +152,9 @@ impl Renderer {
         let mesh = mb.build();
         let mesh = graphics::Mesh::from_data(&ctx.gfx, mesh);
         canvas.draw(&mesh, ggez::graphics::DrawParam::default());
+
+        let mesh = graphics::Mesh::from_data(&ctx.gfx, mb.build());
+        canvas.draw(&mesh, graphics::DrawParam::default());
 
         // HUD: charge bar
         let bar_w = 200.0;
@@ -174,8 +177,6 @@ impl Renderer {
         canvas.draw(&bar_back, graphics::DrawParam::default());
         canvas.draw(&bar_front, graphics::DrawParam::default());
 
-        let mesh = graphics::Mesh::from_data(&ctx.gfx, mb.build());
-        canvas.draw(&mesh, graphics::DrawParam::default());
         canvas.finish(ctx)
     }
 }

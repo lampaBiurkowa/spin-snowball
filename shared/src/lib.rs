@@ -202,6 +202,7 @@ pub struct PhysicsSettings {
 
     pub snowball_radius: f32,
     pub snowball_mass: f32,
+    pub snowball_lifetime_sec: f32,
 
     pub player_bounciness: f32,
     pub snowball_bounciness: f32,
@@ -218,6 +219,7 @@ impl Default for PhysicsSettings {
             player_mass: 1.0,
             snowball_radius: 8.0,
             snowball_mass: 0.5,
+            snowball_lifetime_sec: 3.0,
             player_bounciness: 0.9,
             snowball_bounciness: 0.9,
             friction_per_frame: 0.98,

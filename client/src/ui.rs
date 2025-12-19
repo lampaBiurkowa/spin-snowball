@@ -126,9 +126,8 @@ impl UiState {
                     ui.label(format!("Time: {:.1}", state.time_elapsed));
                     ui.separator();
 
-                    for (id, score) in &state.scores {
-                        ui.label(format!("{id}: {score}"));
-                    }
+                    ui.label(format!("Team1: {}", state.scores.get(&Team::Team1).unwrap_or(&0)));
+                    ui.label(format!("Team2: {}", state.scores.get(&Team::Team2).unwrap_or(&0)));
                 });
             });
     }
@@ -379,31 +378,32 @@ fn draw_physics_settings(ui: &mut egui::Ui, physics: &mut PhysicsSettings) -> Op
     ui.heading("Players");
     ui.add_space(4.0);
 
-    drag(ui, "Radius", &mut physics.player_radius, 0.1, 2.0..=100.0);
-    drag(ui, "Mass", &mut physics.player_mass, 0.1, 0.1..=100.0);
-    drag(ui, "Bounciness", &mut physics.player_bounciness, 0.01, 0.0..=1.0);
+    drag(ui, "Radius", &mut physics.player_radius, 0.1, 2.0..=200.0);
+    drag(ui, "Mass", &mut physics.player_mass, 0.1, 0.1..=200.0);
+    drag(ui, "Bounciness", &mut physics.player_bounciness, 0.01, 0.0..=5.0);
 
     ui.separator();
     ui.heading("Snowballs");
     ui.add_space(4.0);
 
-    drag(ui, "Radius", &mut physics.snowball_radius, 0.1, 1.0..=50.0);
-    drag(ui, "Mass", &mut physics.snowball_mass, 0.1, 0.1..=50.0);
-    drag(ui, "Bounciness", &mut physics.snowball_bounciness, 0.01, 0.0..=1.0);
+    drag(ui, "Radius", &mut physics.snowball_radius, 0.1, 1.0..=200.0);
+    drag(ui, "Mass", &mut physics.snowball_mass, 0.1, 0.1..=200.0);
+    drag(ui, "Bounciness", &mut physics.snowball_bounciness, 0.01, 0.0..=5.0);
+    drag(ui, "Lifetime (s)", &mut physics.snowball_lifetime_sec, 0.01, 0.0..=10.0);
 
     ui.separator();
     ui.heading("Ball");
     ui.add_space(4.0);
 
-    drag(ui, "Radius", &mut physics.ball_radius, 0.1, 2.0..=50.0);
-    drag(ui, "Mass", &mut physics.ball_mass, 0.1, 0.1..=50.0);
-    drag(ui, "Bounciness", &mut physics.ball_bounciness, 0.01, 0.0..=1.0);
+    drag(ui, "Radius", &mut physics.ball_radius, 0.1, 2.0..=200.0);
+    drag(ui, "Mass", &mut physics.ball_mass, 0.1, 0.1..=200.0);
+    drag(ui, "Bounciness", &mut physics.ball_bounciness, 0.01, 0.0..=5.0);
 
     ui.separator();
     ui.heading("Environment");
     ui.add_space(4.0);
 
-    drag(ui, "Friction / frame", &mut physics.friction_per_frame, 0.0001, 0.0..=1.0);
+    drag(ui, "Friction / frame", &mut physics.friction_per_frame, 0.0001, 0.0..=1.5);
     if ui.button("Set").clicked() {
         Some(physics.clone())
     } else {
