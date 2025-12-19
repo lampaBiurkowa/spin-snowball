@@ -7,7 +7,6 @@ pub struct Player {
     pub pos: Vec2,
     pub vel: Vec2,
     pub rotation: f32,
-    pub radius: f32,
 
     pub spin_timer: f32,
     pub max_charge: f32,
@@ -52,7 +51,6 @@ impl GameState {
                 pos: center,
                 vel: Vec2::ZERO,
                 rotation: -90.0,
-                radius: 18.0,
                 spin_timer: 0.0,
                 max_charge: 1.5,
             },

@@ -105,6 +105,11 @@ impl MainState {
                         cmd: Command::SetTeamColor { color, team },
                     });
                 }
+                UIMessage::SetPhysicsSettings { settings } => {
+                    self.network.send(ClientMessage::Command {
+                        cmd: Command::SetPhysicsSettings { settings },
+                    });
+                }
             }
         }
     }
@@ -168,6 +173,12 @@ impl EventHandler for MainState {
                     );
                 }
                 ServerMessage::Pong { .. } => {}
+                ServerMessage::PhysicsSettings { settings } => {
+                    self.game.map.physics = settings;
+                },
+                ServerMessage::Map { map } => {
+                    self.game.map = map;
+                },
             }
         }
 
@@ -233,7 +244,7 @@ pub fn main() -> GameResult {
 
     let (mut ctx, event_loop) = ContextBuilder::new("snowball_spin_net", "you")
         .window_setup(ggez::conf::WindowSetup::default().title("Snowball Spin - Client"))
-        .window_mode(ggez::conf::WindowMode::default().dimensions(800.0, 600.0))
+        .window_mode(ggez::conf::WindowMode::default().dimensions(1200.0, 800.0))
         .build()?;
     let client = MainState::new(&addr, &mut ctx)?;
     event::run(ctx, event_loop, client)

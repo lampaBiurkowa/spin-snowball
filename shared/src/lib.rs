@@ -40,6 +40,9 @@ pub enum Command {
         color: TeamColor,
         team: Team,
     },
+    SetPhysicsSettings { 
+        settings: PhysicsSettings
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -86,6 +89,12 @@ pub enum ServerMessage {
         team1_color: TeamColor,
         team2_color: TeamColor,
     },
+    PhysicsSettings {
+        settings: PhysicsSettings,
+    },
+    Map {
+        map: GameMap,
+    },
     Pong {
         ts: u64,
     },
@@ -115,7 +124,7 @@ pub struct SnowballState {
     pub life: f32,
 }
 
-#[derive(Clone, Copy, Debug, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[derive(PartialEq)]
 pub enum CollisionMaskTag {
@@ -140,7 +149,7 @@ pub fn matches_snowball(mask: &Vec<CollisionMaskTag>) -> bool {
     mask.contains(&CollisionMaskTag::Snowball)
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MapObject {
     Circle {
@@ -164,7 +173,7 @@ pub enum MapObject {
     },
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorDef {
     pub r: f32,
@@ -173,7 +182,7 @@ pub struct ColorDef {
     pub a: f32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameMap {
     pub name: String,
     pub width: f32,
@@ -186,7 +195,7 @@ pub struct GameMap {
     pub football: Option<FootballSettings>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PhysicsSettings {
     pub player_radius: f32,
     pub player_mass: f32,
@@ -219,25 +228,25 @@ impl Default for PhysicsSettings {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum GameMode {
     Fight,
     Football,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamDef {
     pub spawn_x: f32,
     pub spawn_y: f32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BallDef {
     pub spawn_x: f32,
     pub spawn_y: f32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GoalDef {
     pub x: f32,
@@ -247,7 +256,7 @@ pub struct GoalDef {
     pub team: u32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FootballSettings {
     pub ball: BallDef,

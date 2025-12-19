@@ -1,7 +1,7 @@
 {
   "name": "Frost Arena",
-  "width": 800,
-  "height": 600,
+  "width": 1200,
+  "height": 800,
   "mode": "football",
   "physics": {
     "player_radius": 25.0,

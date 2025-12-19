@@ -27,6 +27,9 @@ pub enum UIMessage {
         color: TeamColor,
         team: Team,
     },
+    SetPhysicsSettings {
+        settings: PhysicsSettings,
+    },
 }
 
 pub struct UiState {
@@ -40,6 +43,8 @@ pub struct UiState {
     nick_edit: String,
     team1_color: egui::Color32,
     team2_color: egui::Color32,
+    show_physics: bool,
+    physics_edit: Option<PhysicsSettings>
 }
 
 impl UiState {
@@ -55,6 +60,8 @@ impl UiState {
             nick_edit: String::new(),
             team1_color: egui::Color32::from_rgb(200, 0, 0),
             team2_color: egui::Color32::from_rgb(0, 0, 200),
+            show_physics: false,
+            physics_edit: None
         }
     }
 
@@ -76,13 +83,13 @@ impl UiState {
                 ui.separator();
 
                 egui::CollapsingHeader::new("Player")
-                    .default_open(true)
+                    .default_open(false)
                     .show(ui, |ui| {
                         self.draw_player_section(ui);
                     });
 
                 egui::CollapsingHeader::new("Team Colors")
-                    .default_open(true)
+                    .default_open(false)
                     .show(ui, |ui| {
                         self.draw_team_colors_section(ui);
                     });
@@ -91,7 +98,20 @@ impl UiState {
                 self.draw_match_settings(ui, state);
                 ui.separator();
                 self.draw_match_controls(ui, state);
+                ui.separator();
+                if ui.button("⚙ Physics Settings").clicked() {
+                    self.show_physics = !self.show_physics;
+                    if self.show_physics {
+                        self.physics_edit = Some(state.map.physics.clone());
+                    }
+                }
             });
+
+        if self.show_physics {
+            self.draw_physics_window(&egui_ctx, state);
+        } else if self.physics_edit.is_some() {
+            self.physics_edit = None;
+        }
 
         self.ctx.update(ctx);
     }
@@ -337,10 +357,79 @@ impl UiState {
             });
     }
 
+    fn draw_physics_window(&mut self, egui_ctx: &egui::Context, state: &GameState) {
+        egui::Window::new("Physics")
+            .default_width(320.0)
+            .resizable(true)
+            .open(&mut self.show_physics)
+            .show(egui_ctx, |ui| {
+                let settings = self.physics_edit.as_mut().unwrap();
+                if let Some(x) = draw_physics_settings(ui, settings) {
+                    self.sender.send(UIMessage::SetPhysicsSettings { settings: x }).unwrap();
+                }
+            });
+    }
+
     pub(crate) fn text_input_event(&mut self, ctx: &mut ggez::Context, character: char) {
         self.ctx.input.text_input_event(character, ctx);
     }
 }
+
+fn draw_physics_settings(ui: &mut egui::Ui, physics: &mut PhysicsSettings) -> Option<PhysicsSettings> {
+    ui.heading("Players");
+    ui.add_space(4.0);
+
+    drag(ui, "Radius", &mut physics.player_radius, 0.1, 2.0..=100.0);
+    drag(ui, "Mass", &mut physics.player_mass, 0.1, 0.1..=100.0);
+    drag(ui, "Bounciness", &mut physics.player_bounciness, 0.01, 0.0..=1.0);
+
+    ui.separator();
+    ui.heading("Snowballs");
+    ui.add_space(4.0);
+
+    drag(ui, "Radius", &mut physics.snowball_radius, 0.1, 1.0..=50.0);
+    drag(ui, "Mass", &mut physics.snowball_mass, 0.1, 0.1..=50.0);
+    drag(ui, "Bounciness", &mut physics.snowball_bounciness, 0.01, 0.0..=1.0);
+
+    ui.separator();
+    ui.heading("Ball");
+    ui.add_space(4.0);
+
+    drag(ui, "Radius", &mut physics.ball_radius, 0.1, 2.0..=50.0);
+    drag(ui, "Mass", &mut physics.ball_mass, 0.1, 0.1..=50.0);
+    drag(ui, "Bounciness", &mut physics.ball_bounciness, 0.01, 0.0..=1.0);
+
+    ui.separator();
+    ui.heading("Environment");
+    ui.add_space(4.0);
+
+    drag(ui, "Friction / frame", &mut physics.friction_per_frame, 0.0001, 0.0..=1.0);
+    if ui.button("Set").clicked() {
+        Some(physics.clone())
+    } else {
+        None
+    }
+}
+
+fn drag<T>(
+    ui: &mut egui::Ui,
+    label: &str,
+    value: &mut T,
+    speed: f64,
+    range: std::ops::RangeInclusive<T>,
+) where
+    T: egui::emath::Numeric,
+{
+    ui.horizontal(|ui| {
+        ui.label(label);
+        ui.add(
+            egui::DragValue::new(value)
+                .speed(speed)
+                .clamp_range(range),
+        );
+    });
+}
+
 
 fn egui_to_server_color(c: egui::Color32) -> TeamColor {
     TeamColor {

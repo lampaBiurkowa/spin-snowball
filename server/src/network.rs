@@ -22,16 +22,22 @@ pub async fn handle_connection(
     let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
 
     peers.lock().unwrap().insert(client_id.clone(), tx.clone());
-    {
+    let map = {
         let mut gs = game_state.lock().unwrap();
         gs.add_new_player(client_id.clone());
-    }
+        gs.map.clone()
+    };
 
     let assign = ServerMessage::AssignId {
         id: client_id.clone(),
     };
     ws_sender
         .send(Message::Text(serde_json::to_string(&assign)?.into()))
+        .await?;
+
+    let map = ServerMessage::Map { map };
+    ws_sender
+        .send(Message::Text(serde_json::to_string(&map)?.into()))
         .await?;
 
     let forward_out = async {
@@ -110,6 +116,11 @@ pub async fn handle_connection(
                             Command::LoadMap { data } => {
                                 println!("got load");
                                 gs.load_map(&data);
+                                let txt = serde_json::to_string(&ServerMessage::Map { map: gs.map.clone() }).unwrap();
+                                let peers_guard = peers.lock().unwrap();
+                                for (_id, tx) in peers_guard.iter() {
+                                    let _ = tx.send(Message::Text(txt.clone().into()));
+                                }
                             }
                             Command::JoinAsPlayer { team } => {
                                 println!("got join team");
@@ -136,6 +147,15 @@ pub async fn handle_connection(
                                     Team::Team2 => gs.team2_color = color,
                                 }
                             }
+                            Command::SetPhysicsSettings { settings } => {
+                                println!("got SetPhysicsSettings: {settings:?}");
+                                gs.map.physics = settings.clone();
+                                let txt = serde_json::to_string(&ServerMessage::PhysicsSettings { settings }).unwrap();
+                                let peers_guard = peers.lock().unwrap();
+                                for (_id, tx) in peers_guard.iter() {
+                                    let _ = tx.send(Message::Text(txt.clone().into()));
+                                }
+                            },
                         }
                     }
                     Err(e) => {

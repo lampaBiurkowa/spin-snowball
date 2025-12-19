@@ -89,7 +89,7 @@ impl Renderer {
                 mb.circle(
                     DrawMode::fill(),
                     Vec2::new(p.pos[0], p.pos[1]),
-                    16.0,
+                    state.map.physics.player_radius,
                     0.5,
                     color,
                 )?;
@@ -101,7 +101,7 @@ impl Renderer {
                 );
 
                 let dims = text.measure(ctx)?;
-                let text_pos = Vec2::new(p.pos[0] - dims.x / 2.0, p.pos[1] + 16.0 + 4.0);
+                let text_pos = Vec2::new(p.pos[0] - dims.x / 2.0, p.pos[1] + state.map.physics.player_radius + 4.0);
                 canvas.draw(&text, graphics::DrawParam::default().dest(text_pos).z(100));
             }
         }
@@ -112,7 +112,7 @@ impl Renderer {
             mb.circle(
                 DrawMode::fill(),
                 state.player.pos,
-                state.player.radius,
+                state.map.physics.player_radius,
                 0.5,
                 color,
             )?;
@@ -121,8 +121,8 @@ impl Renderer {
         // direction indicator triangle for local player
         let dir = state.forward_vector();
         let tip = Vec2::new(
-            state.player.pos.x + dir.x * (state.player.radius + 8.0),
-            state.player.pos.y + dir.y * (state.player.radius + 8.0),
+            state.player.pos.x + dir.x * (state.map.physics.player_radius + 8.0),
+            state.player.pos.y + dir.y * (state.map.physics.player_radius + 8.0),
         );
         let left = Vec2::new(
             state.player.pos.x + (-dir.y) * 8.0,
