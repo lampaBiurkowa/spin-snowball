@@ -102,19 +102,15 @@ pub async fn handle_connection(
                                 }
                             }
                             Command::Pause => {
-                                println!("got pause");
                                 gs.pause_match();
                             }
                             Command::Resume => {
-                                println!("got resume");
                                 gs.resume_match();
                             }
                             Command::Stop => {
-                                println!("got stop");
                                 gs.stop_match();
                             }
                             Command::LoadMap { data } => {
-                                println!("got load");
                                 gs.load_map(&data);
                                 let txt = serde_json::to_string(&ServerMessage::Map { map: gs.map.clone() }).unwrap();
                                 let peers_guard = peers.lock().unwrap();
@@ -123,32 +119,27 @@ pub async fn handle_connection(
                                 }
                             }
                             Command::JoinAsPlayer { team } => {
-                                println!("got join team");
                                 if let Some(p) = gs.players.get_mut(&client_id_clone) {
                                     p.status = PlayerStatus::Playing(team);
                                 }
                             }
                             Command::JoinAsSpectator => {
-                                println!("got join spectator");
                                 if let Some(p) = gs.players.get_mut(&client_id_clone) {
                                     p.status = PlayerStatus::Spectator;
                                 }
                             }
                             Command::SetNick { nick } => {
-                                println!("got set nick: {nick}");
                                 if let Some(p) = gs.players.get_mut(&client_id_clone) {
                                     p.nick = nick;
                                 }
                             }
                             Command::SetTeamColor { color, team } => {
-                                println!("got set team color: {color:?}, {team:?}");
                                 match team {
                                     Team::Team1 => gs.team1_color = color,
                                     Team::Team2 => gs.team2_color = color,
                                 }
                             }
                             Command::SetPhysicsSettings { settings } => {
-                                println!("got SetPhysicsSettings: {settings:?}");
                                 gs.map.physics = settings.clone();
                                 let txt = serde_json::to_string(&ServerMessage::PhysicsSettings { settings }).unwrap();
                                 let peers_guard = peers.lock().unwrap();

@@ -247,7 +247,7 @@ impl GameState {
                     // spawn based on current rotation & spin_timer
                     let max_charge = 1.0;
                     let charge = p.spin_timer.min(max_charge);
-                    let charge_t = charge / max_charge;
+                    let charge_t = (charge / max_charge).clamp(0.1, 1.0);
                     let base_speed = 300.0;
                     let snowball_speed = base_speed + 700.0 * charge_t;
 
@@ -266,8 +266,11 @@ impl GameState {
                             life: self.map.physics.snowball_lifetime_sec,
                         },
                     );
-
-                    let recoil_strength = 0.8 + max_charge * charge_t;
+                    let snowball_mass = self.map.physics.snowball_mass;
+                    let player_mass = self.map.physics.player_mass;
+                    let mass_ratio = (snowball_mass / player_mass).clamp(0.2, 2.0);
+                    let base_recoil = 0.6;
+                    let recoil_strength = base_recoil + mass_ratio * max_charge * charge_t;
                     p.vel -= dir * (snowball_speed * recoil_strength / 3.0);
 
                     p.spin_timer = 0.0;
