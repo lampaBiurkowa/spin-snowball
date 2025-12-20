@@ -403,7 +403,7 @@ fn draw_physics_settings(ui: &mut egui::Ui, physics: &mut PhysicsSettings) -> Op
     ui.heading("Environment");
     ui.add_space(4.0);
 
-    drag(ui, "Friction / frame", &mut physics.friction_per_frame, 0.0001, 0.0..=1.5);
+    drag(ui, "Friction / frame", &mut physics.friction_per_frame, 0.0001, 0.0..=1.0);
     if ui.button("Set").clicked() {
         Some(physics.clone())
     } else {

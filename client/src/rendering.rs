@@ -58,6 +58,36 @@ impl Renderer {
                     );
                     mb.rectangle(DrawMode::fill(), graphics::Rect::new(*x, *y, *w, *h), c)?;
                 }
+
+                MapObject::Line {
+                    ax,
+                    ay,
+                    bx,
+                    by,
+                    color,
+                    is_hole,
+                    ..
+                } => {
+                    let mut c = Color::from_rgba(
+                        (color.r * 255.0) as u8,
+                        (color.g * 255.0) as u8,
+                        (color.b * 255.0) as u8,
+                        (color.a * 255.0) as u8,
+                    );
+
+                    if *is_hole {
+                        c.a *= 0.6;
+                    }
+
+                    mb.line(
+                        &[
+                            Vec2::new(*ax, *ay),
+                            Vec2::new(*bx, *by),
+                        ],
+                        3.0,
+                        c,
+                    )?;
+                }
             }
         }
 
@@ -144,9 +174,11 @@ impl Renderer {
             mb.circle(DrawMode::fill(), Vec2::new(sb.pos.x, sb.pos.y), state.map.physics.snowball_radius, 0.5, c)?;
         }
 
-        if let Some(ball) = &state.ball {
-            let c = Color::from_rgb(250, 230, 120);
-            mb.circle(DrawMode::fill(), ball.pos, ball.radius, 0.5, c)?;
+        if state.map.mode == GameMode::Football {
+            if let Some(ball) = &state.ball {
+                let c = Color::from_rgb(250, 230, 120);
+                mb.circle(DrawMode::fill(), ball.pos, ball.radius, 0.5, c)?;
+            }
         }
 
         let mesh = mb.build();

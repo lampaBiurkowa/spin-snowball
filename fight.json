@@ -1,0 +1,113 @@
+{
+    "name": "Hex Pit",
+    "width": 1200,
+    "height": 800,
+    "mode": "fight",
+    "physics": {
+        "player_radius": 25.0,
+        "player_mass": 1.0,
+        "snowball_radius": 8.0,
+        "snowball_mass": 0.5,
+        "ball_mass": 1.0,
+        "ball_radius": 10.0,
+        "ball_bounciness": 0.7,
+        "player_bounciness": 0.6,
+        "snowball_bounciness": 0.9,
+        "snowball_lifetime_sec": 3.0,
+        "friction_per_frame": 0.985
+    },
+    "team1": {
+        "spawn_x": 250,
+        "spawn_y": 400
+    },
+    "team2": {
+        "spawn_x": 950,
+        "spawn_y": 400
+    },
+    "objects": [
+        {
+            "line": {
+                "ax": 1000.0,
+                "ay": 400.0,
+                "bx": 800.0,
+                "by": 746.4,
+                "is_hole": false,
+                "factor": 1.0,
+                "color": { "r": 0.8, "g": 0.8, "b": 0.85, "a": 1.0 },
+                "mask": ["player_team1", "player_team2", "snowball", "ball"]
+            }
+        },
+        {
+            "line": {
+                "ax": 800.0,
+                "ay": 746.4,
+                "bx": 400.0,
+                "by": 746.4,
+                "is_hole": false,
+                "factor": 1.0,
+                "color": { "r": 0.8, "g": 0.8, "b": 0.85, "a": 1.0 },
+                "mask": ["player_team1", "player_team2", "snowball", "ball"]
+            }
+        },
+        {
+            "line": {
+                "ax": 400.0,
+                "ay": 746.4,
+                "bx": 200.0,
+                "by": 400.0,
+                "is_hole": false,
+                "factor": 1.0,
+                "color": { "r": 0.8, "g": 0.8, "b": 0.85, "a": 1.0 },
+                "mask": ["player_team1", "player_team2", "snowball", "ball"]
+            }
+        },
+        {
+            "line": {
+                "ax": 200.0,
+                "ay": 400.0,
+                "bx": 400.0,
+                "by": 53.6,
+                "is_hole": false,
+                "factor": 1.0,
+                "color": { "r": 0.8, "g": 0.8, "b": 0.85, "a": 1.0 },
+                "mask": ["player_team1", "player_team2", "snowball", "ball"]
+            }
+        },
+        {
+            "line": {
+                "ax": 400.0,
+                "ay": 53.6,
+                "bx": 800.0,
+                "by": 53.6,
+                "is_hole": false,
+                "factor": 1.0,
+                "color": { "r": 0.8, "g": 0.8, "b": 0.85, "a": 1.0 },
+                "mask": ["player_team1", "player_team2", "snowball", "ball"]
+            }
+        },
+        {
+            "line": {
+                "ax": 800.0,
+                "ay": 53.6,
+                "bx": 1000.0,
+                "by": 400.0,
+                "is_hole": false,
+                "factor": 1.0,
+                "color": { "r": 0.8, "g": 0.8, "b": 0.85, "a": 1.0 },
+                "mask": ["player_team1", "player_team2", "snowball", "ball"]
+            }
+        },
+
+        {
+            "circle": {
+                "x": 600.0,
+                "y": 400.0,
+                "radius": 70.0,
+                "is_hole": true,
+                "factor": 1.0,
+                "color": { "r": 0.9, "g": 0.2, "b": 0.2, "a": 0.5 },
+                "mask": ["player_team1", "player_team2", "snowball", "ball"]
+            }
+        }
+    ]
+}

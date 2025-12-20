@@ -84,7 +84,7 @@ impl Body for Ball {
 
 pub fn simulate_movement(game_state: &mut GameState, dt: f32) {
     for (_id, p) in game_state.players.iter_mut() {
-        let max_charge_time = 1.5;
+        let max_charge_time = 1.0;
         let base_rot_speed = 180.0;     
         let max_rot_speed = 440.0;
         let t = (p.spin_timer / max_charge_time).min(1.0);
@@ -239,7 +239,7 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
         if let Some(sb_snapshot) = game_state.snowballs.get(sid).map(|s| s.pos) {
             for obj in &game_state.map.objects {
                 let mask = match obj {
-                    MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } => mask,
+                    MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } | MapObject::Line { mask, .. } => mask,
                 };
                 if !matches_snowball(&mask) {
                     continue;
@@ -311,102 +311,166 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
                             }
                         }
                     }
+                    MapObject::Line {
+                        ax,
+                        ay,
+                        bx,
+                        by,
+                        factor,
+                        color: _,
+                        is_hole,
+                        mask: _,
+                    } => {
+                        let a = Vec2::new(*ax, *ay);
+                        let b = Vec2::new(*bx, *by);
+
+                        if let Some(_delta) = circle_intersects_line(
+                            sb_snapshot,
+                            game_state.map.physics.snowball_radius,
+                            a,
+                            b,
+                        ) {
+                            if *is_hole {
+                                response.snowballs_in_holes.push(*sid);
+                            } else if let Some(sb) = game_state.snowballs.get_mut(sid) {
+                                resolve_circle_line(
+                                    sb,
+                                    a,
+                                    b,
+                                    *factor,
+                                    &game_state.map.physics,
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
     // Ball
-    if let Some(ball) = &mut game_state.ball {
-        for obj in &game_state.map.objects {
-            let mask = match obj {
-                MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } => mask,
-            };
-            if !matches_ball(&mask) {
-                continue;
-            }
-            match obj {
-                MapObject::Circle {
-                    x,
-                    y,
-                    radius,
-                    factor,
-                    color: _,
-                    is_hole,
-                    mask: _,
-                } => {
-                    if circle_intersects_circle(
-                        ball.pos.x,
-                        ball.pos.y,
-                        game_state.map.physics.ball_radius,
-                        *x,
-                        *y,
-                        *radius,
-                    ) {
-                        if *is_hole {
-                        } else {
-                            let delta = ball.pos - Vec2::new(*x, *y);
-                            let dist = delta.length().max(0.0001);
-                            let n = delta / dist;
-                            ball.pos = Vec2::new(*x, *y)
-                                + n * (*radius + game_state.map.physics.ball_radius);
-                            ball.vel = ball.vel - 2.0 * ball.vel.dot(n) * n * (*factor);
+    if game_state.map.mode == GameMode::Football {
+        if let Some(ball) = &mut game_state.ball {
+            for obj in &game_state.map.objects {
+                let mask = match obj {
+                    MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } | MapObject::Line { mask, .. }  => mask,
+                };
+                if !matches_ball(&mask) {
+                    continue;
+                }
+                match obj {
+                    MapObject::Circle {
+                        x,
+                        y,
+                        radius,
+                        factor,
+                        color: _,
+                        is_hole,
+                        mask: _,
+                    } => {
+                        if circle_intersects_circle(
+                            ball.pos.x,
+                            ball.pos.y,
+                            game_state.map.physics.ball_radius,
+                            *x,
+                            *y,
+                            *radius,
+                        ) {
+                            if *is_hole {
+                            } else {
+                                let delta = ball.pos - Vec2::new(*x, *y);
+                                let dist = delta.length().max(0.0001);
+                                let n = delta / dist;
+                                ball.pos = Vec2::new(*x, *y)
+                                    + n * (*radius + game_state.map.physics.ball_radius);
+                                ball.vel = ball.vel - 2.0 * ball.vel.dot(n) * n * (*factor);
+                            }
                         }
                     }
-                }
-                MapObject::Rect {
-                    x,
-                    y,
-                    w,
-                    h,
-                    factor,
-                    color: _,
-                    is_hole,
-                    mask: _,
-                } => {
-                    if circle_intersects_rect(
-                        ball.pos.x,
-                        ball.pos.y,
-                        game_state.map.physics.ball_radius,
-                        *x,
-                        *y,
-                        *w,
-                        *h,
-                    ) {
-                        if *is_hole {
-                        } else {
-                            let cx = ball.pos.x.clamp(*x, x + w);
-                            let cy = ball.pos.y.clamp(*y, y + h);
-                            let mut n = ball.pos - Vec2::new(cx, cy);
-                            if n.length_squared() < 1e-6 {
-                                n = Vec2::new(
-                                    (ball.pos.x - (x + w / 2.0)).signum(),
-                                    (ball.pos.y - (y + h / 2.0)).signum(),
+                    MapObject::Rect {
+                        x,
+                        y,
+                        w,
+                        h,
+                        factor,
+                        color: _,
+                        is_hole,
+                        mask: _,
+                    } => {
+                        if circle_intersects_rect(
+                            ball.pos.x,
+                            ball.pos.y,
+                            game_state.map.physics.ball_radius,
+                            *x,
+                            *y,
+                            *w,
+                            *h,
+                        ) {
+                            if *is_hole {
+                            } else {
+                                let cx = ball.pos.x.clamp(*x, x + w);
+                                let cy = ball.pos.y.clamp(*y, y + h);
+                                let mut n = ball.pos - Vec2::new(cx, cy);
+                                if n.length_squared() < 1e-6 {
+                                    n = Vec2::new(
+                                        (ball.pos.x - (x + w / 2.0)).signum(),
+                                        (ball.pos.y - (y + h / 2.0)).signum(),
+                                    );
+                                }
+                                let n = n.normalize_or_zero();
+                                ball.pos += n * (game_state.map.physics.ball_radius * 0.5 + 0.5);
+                                ball.vel = ball.vel - 2.0 * ball.vel.dot(n) * n * factor;
+                            }
+                        }
+                    }
+                    MapObject::Line {
+                        ax,
+                        ay,
+                        bx,
+                        by,
+                        factor,
+                        color: _,
+                        is_hole,
+                        mask: _,
+                    } => {
+                        let a = Vec2::new(*ax, *ay);
+                        let b = Vec2::new(*bx, *by);
+
+                        if let Some(_delta) = circle_intersects_line(
+                            ball.pos,
+                            game_state.map.physics.ball_radius,
+                            a,
+                            b,
+                        ) {
+                            if !*is_hole {
+                                resolve_circle_line(
+                                    ball,
+                                    a,
+                                    b,
+                                    *factor,
+                                    &game_state.map.physics,
                                 );
                             }
-                            let n = n.normalize_or_zero();
-                            ball.pos += n * (game_state.map.physics.ball_radius * 0.5 + 0.5);
-                            ball.vel = ball.vel - 2.0 * ball.vel.dot(n) * n * factor;
                         }
                     }
                 }
             }
         }
-    }
 
-    if let Some(ball) = &mut game_state.ball {
-        if let Some(x) = &game_state.map.football {
-            for goal in x.goals.iter() {
-                if circle_intersects_rect(
-                    ball.pos.x,
-                    ball.pos.y,
-                    game_state.map.physics.ball_radius,
-                    goal.x,
-                    goal.y,
-                    goal.w,
-                    goal.h,
-                ) {
-                    response.goal_for_team = Some(goal.team);
+        if let Some(ball) = &mut game_state.ball {
+            if let Some(x) = &game_state.map.football {
+                for goal in x.goals.iter() {
+                    if circle_intersects_rect(
+                        ball.pos.x,
+                        ball.pos.y,
+                        game_state.map.physics.ball_radius,
+                        goal.x,
+                        goal.y,
+                        goal.w,
+                        goal.h,
+                    ) {
+                        response.goal_for_team = Some(goal.team);
+                    }
                 }
             }
         }
@@ -428,7 +492,7 @@ fn handle_map_for_body_player(
     let pos = player.pos;
     for obj in objects {
         let mask = match obj {
-            MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } => mask,
+            MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } | MapObject::Line { mask, .. }  => mask,
         };
         let team = match player.status {
             PlayerStatus::Spectator => continue,
@@ -512,6 +576,29 @@ fn handle_map_for_body_player(
                     }
                 }
             }
+            MapObject::Line {
+                ax,
+                ay,
+                bx,
+                by,
+                factor,
+                color: _,
+                is_hole,
+                mask: _,
+            } => {
+                let a = Vec2::new(*ax, *ay);
+                let b = Vec2::new(*bx, *by);
+
+                if let Some(_delta) =
+                    circle_intersects_line(player.pos, physics.player_radius, a, b)
+                {
+                    if *is_hole {
+                        response.players_in_holes.push(team);
+                    } else {
+                        resolve_circle_line(player, a, b, *factor, physics);
+                    }
+                }
+            }
         }
     }
 }
@@ -584,4 +671,63 @@ fn dist2(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
     let dx = ax - bx;
     let dy = ay - by;
     dx * dx + dy * dy
+}
+
+#[inline]
+fn closest_point_on_segment(p: Vec2, a: Vec2, b: Vec2) -> Vec2 {
+    let ab = b - a;
+    let t = (p - a).dot(ab) / ab.length_squared();
+    let t = t.clamp(0.0, 1.0);
+    a + ab * t
+}
+
+#[inline]
+fn circle_intersects_line(
+    p: Vec2,
+    r: f32,
+    a: Vec2,
+    b: Vec2,
+) -> Option<Vec2> {
+    let closest = closest_point_on_segment(p, a, b);
+    let delta = p - closest;
+    let dist2 = delta.length_squared();
+
+    if dist2 < r * r {
+        Some(delta)
+    } else {
+        None
+    }
+}
+
+fn resolve_circle_line<B: Body>(
+    body: &mut B,
+    line_a: Vec2,
+    line_b: Vec2,
+    factor: f32,
+    physics: &PhysicsSettings,
+) {
+    let r = body.radius(physics);
+    let pos = body.pos();
+
+    let closest = closest_point_on_segment(pos, line_a, line_b);
+    let mut n = pos - closest;
+
+    let dist = n.length();
+    if dist <= 0.0001 || dist >= r {
+        return;
+    }
+
+    n /= dist;
+
+    // push out of penetration
+    let penetration = r - dist;
+    *body.pos_mut() += n * penetration;
+
+    // reflect velocity
+    let v = body.vel();
+    let vn = v.dot(n);
+
+    if vn < 0.0 {
+        *body.vel_mut() = v - 2.0 * vn * n * factor;
+    }
 }

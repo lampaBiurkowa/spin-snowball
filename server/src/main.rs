@@ -245,8 +245,9 @@ impl GameState {
                 // only spawn a snowball when shoot transitions from false -> true
                 if shoot && !p.last_shoot_pressed {
                     // spawn based on current rotation & spin_timer
-                    let charge = p.spin_timer.min(1.5);
-                    let charge_t = charge / 1.5;
+                    let max_charge = 1.0;
+                    let charge = p.spin_timer.min(max_charge);
+                    let charge_t = charge / max_charge;
                     let base_speed = 300.0;
                     let snowball_speed = base_speed + 700.0 * charge_t;
 
@@ -266,7 +267,7 @@ impl GameState {
                         },
                     );
 
-                    let recoil_strength = 0.45 + 1.0 * charge_t;
+                    let recoil_strength = 0.8 + max_charge * charge_t;
                     p.vel -= dir * (snowball_speed * recoil_strength / 3.0);
 
                     p.spin_timer = 0.0;
@@ -377,7 +378,6 @@ impl GameState {
     }
 
     pub fn reset_positions(&mut self) {
-        let mut rng = rand::rng();
         for p in self.players.values_mut() {
             match p.status {
                 PlayerStatus::Playing(Team::Team1) => {
@@ -397,6 +397,8 @@ impl GameState {
                 PlayerStatus::Spectator => ()
             }
         }
+
+        self.snowballs = HashMap::new();
         
         if let Some(x) = self.map.football.clone() {
             if let Some(ball) = &mut self.ball {
@@ -503,8 +505,7 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                                 .values_mut()
                                 .find(|x| matches!(x.status, PlayerStatus::Playing(x) if x == id))
                             {
-                                p.pos = Vec2::new(100.0, 100.0); //respawn pos
-                                p.vel = Vec2::ZERO;
+                                gs.reset_positions();
                             }
                             for (other_id, score) in gs.scores.iter_mut() {
                                 if *other_id != id {

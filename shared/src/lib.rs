@@ -171,6 +171,16 @@ pub enum MapObject {
         is_hole: bool,
         mask: Vec<CollisionMaskTag>,
     },
+    Line {
+        ax: f32,
+        ay: f32,
+        bx: f32,
+        by: f32,
+        factor: f32,
+        color: ColorDef,
+        is_hole: bool,
+        mask: Vec<CollisionMaskTag>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

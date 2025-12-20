@@ -52,7 +52,7 @@ impl GameState {
                 vel: Vec2::ZERO,
                 rotation: -90.0,
                 spin_timer: 0.0,
-                max_charge: 1.5,
+                max_charge: 1.0,
             },
             other_players: vec![],
             snowballs: vec![],
