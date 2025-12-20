@@ -104,6 +104,9 @@ pub enum ServerMessage {
 pub struct BallState {
     pub pos: [f32; 2],
     pub vel: [f32; 2],
+    //ctf:
+    pub carrier: Option<String>,
+    pub possession_time: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -245,6 +248,7 @@ impl Default for PhysicsSettings {
 pub enum GameMode {
     Fight,
     Football,
+    Ctf
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamDef {

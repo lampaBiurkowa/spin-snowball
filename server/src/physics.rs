@@ -182,12 +182,24 @@ fn simulate_player_snowball_collisions(game_state: &mut GameState) {
                 game_state.players.get_mut(pid),
                 game_state.snowballs.get_mut(sid),
             ) {
-                resolve_circle_circle_custom_masses(
+                if resolve_circle_circle_custom_masses(
                     p_mut,
                     s_mut,
                     game_state.map.physics.snowball_bounciness,
                     &game_state.map.physics,
-                );
+                ) {
+                    if game_state.map.mode == GameMode::Ctf {
+                        if let Some(ball) = &mut game_state.ball {
+                            if ball.carrier.as_deref() == Some(&p_mut.id) {
+                                ball.carrier = None;
+                                ball.possession_team = None;
+                                ball.possession_time = 0.0;
+                                ball.vel = Vec2::ZERO;
+                                ball.pos = Vec2::new(game_state.map.football.clone().unwrap().ball.spawn_x, game_state.map.football.clone().unwrap().ball.spawn_y);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -203,7 +215,22 @@ fn simulate_ball_collisions(game_state: &mut GameState) {
 
     // Ball vs players
     for p in game_state.players.values_mut() {
-        resolve_circle_circle(p, ball, physics.ball_bounciness, physics);
+        if let Some(id) = &ball.carrier {
+            if p.id == *id {
+                continue;
+            }
+        }
+        if resolve_circle_circle(p, ball, physics.ball_bounciness, physics) {
+            if game_state.map.mode == GameMode::Ctf {
+                if ball.carrier.is_none() {
+                    ball.carrier = Some(p.id.clone());
+                    if let PlayerStatus::Playing(team) = p.status {
+                        ball.possession_team = Some(team);
+                        ball.possession_time = 0.0;
+                    }
+                }
+            }
+        }
     }
 
     // Ball vs snowballs
@@ -610,13 +637,13 @@ fn resolve_circle_circle<A: Body, B: Body>(
     b: &mut B,
     bounciness: f32,
     physics: &PhysicsSettings,
-) {
+) -> bool {
     let delta = b.pos() - a.pos();
     let dist = delta.length();
     let min_dist = a.radius(physics) + b.radius(physics);
 
     if dist <= 0.0 || dist >= min_dist {
-        return;
+        return false;
     }
 
     let n = delta / dist;
@@ -632,13 +659,15 @@ fn resolve_circle_circle<A: Body, B: Body>(
     let sep_vel = rel_vel.dot(n);
 
     if sep_vel >= 0.0 {
-        return; // moving apart already
+        return true; // moving apart already
     }
 
     let impulse = -(1.0 + bounciness) * sep_vel / total_mass;
 
     *a.vel_mut() -= n * (impulse * b.mass(physics));
     *b.vel_mut() += n * (impulse * a.mass(physics));
+
+    true
 }
 
 /// Convenience wrapper when you need to pass concrete Player and Snowball types (works the same).
@@ -647,9 +676,9 @@ fn resolve_circle_circle_custom_masses(
     b: &mut crate::Snowball,
     bounciness: f32,
     physics: &PhysicsSettings,
-) {
+) -> bool {
     // use the same generic resolver by bridging to trait impls (already implemented)
-    resolve_circle_circle(a, b, bounciness, physics);
+    resolve_circle_circle(a, b, bounciness, physics)
 }
 
 /// Basic circle-rectangle intersection test (returns true if circle intersects rect).

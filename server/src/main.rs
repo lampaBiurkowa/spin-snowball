@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use glam::Vec2;
-use rand::Rng;
 use spin_snowball_shared::*;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
@@ -150,6 +149,10 @@ async fn main() -> anyhow::Result<()> {
 struct Ball {
     pos: Vec2,
     vel: Vec2,
+    //ctf:
+    carrier: Option<String>,
+    possession_team: Option<Team>,
+    possession_time: f32,
 }
 
 struct GameState {
@@ -174,6 +177,9 @@ impl GameState {
                 Some(Ball {
                     pos: Vec2::new(b.spawn_x, b.spawn_y),
                     vel: Vec2::ZERO,
+                    carrier: None,
+                    possession_team: None,
+                    possession_time: 0.0,
                 })
             }
             _ => None,
@@ -206,17 +212,12 @@ impl GameState {
     }
 
     pub fn add_new_player(&mut self, id: String) {
-        let pos = Vec2::new(
-            rand::random::<f32>() * (self.map.width - 40.0) + 20.0,
-            rand::random::<f32>() * (self.map.height - 40.0) + 20.0,
-        );
-
         self.players.insert(
             id.clone(),
             Player {
                 id,
                 nick: format!("Player {}", self.players.len() + 1),
-                pos,
+                pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
                 rot_deg: -90.0,
                 rotating_left: false,
@@ -298,6 +299,18 @@ impl GameState {
         for id in dead {
             self.snowballs.remove(&id);
         }
+        if self.map.mode == GameMode::Ctf {
+            if let Some(ball) = &mut self.ball {
+                if let Some(team) = ball.possession_team {
+                    ball.possession_time += DT;
+                    
+                    if ball.possession_time >= 10.0 {
+                        *self.scores.entry(team).or_insert(0) += 1;
+                        ball.possession_time = 0.0;
+                    }
+                }
+            }
+        }
     }
 
     fn snapshot(&self) -> (Vec<PlayerState>, Vec<SnowballState>) {
@@ -346,6 +359,9 @@ impl GameState {
                 self.ball = Some(Ball {
                     pos: Vec2::new(ball_info.spawn_x, ball_info.spawn_y),
                     vel: Vec2::ZERO,
+                    carrier: None,
+                    possession_team: None,
+                    possession_time: Default::default(),
                 });
             }
         }
@@ -407,6 +423,9 @@ impl GameState {
             if let Some(ball) = &mut self.ball {
                 ball.pos = Vec2::new(x.ball.spawn_x, x.ball.spawn_y);
                 ball.vel = Vec2::ZERO;
+                ball.carrier = None;
+                ball.possession_team = None;
+                ball.possession_time = 0.0;
             }
         }
     }
@@ -475,6 +494,8 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                         ball: gs.ball.clone().map(|x| BallState {
                             pos: x.pos.into(),
                             vel: x.vel.into(),
+                            carrier: x.carrier,
+                            possession_time: x.possession_time,
                         }),
                         scores: gs.scores.clone(),
                         phase: gs.phase.clone(),
@@ -538,6 +559,25 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                     }
                 }
 
+                if gs.map.mode == GameMode::Ctf {
+                    let carrier_pos = {
+                        if let Some(ball) = &gs.ball {
+                            if let Some(carrier_id) = &ball.carrier {
+                                gs.players.get(carrier_id).map(|p| p.pos)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    };
+
+                    if let (Some(pos), Some(ball)) = (carrier_pos, gs.ball.as_mut()) {
+                        ball.pos = pos;
+                        ball.vel = Vec2::ZERO;
+                    }
+                }
+
                 let (players, snowballs) = gs.snapshot();
                 let msg = ServerMessage::WorldState {
                     players,
@@ -545,6 +585,8 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                     ball: gs.ball.clone().map(|x| BallState {
                         pos: x.pos.into(),
                         vel: x.vel.into(),
+                        carrier: x.carrier,
+                        possession_time: x.possession_time
                     }),
                     scores: gs.scores.clone(),
                     phase: gs.phase.clone(),

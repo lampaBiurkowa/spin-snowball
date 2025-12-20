@@ -174,7 +174,7 @@ impl Renderer {
             mb.circle(DrawMode::fill(), Vec2::new(sb.pos.x, sb.pos.y), state.map.physics.snowball_radius, 0.5, c)?;
         }
 
-        if state.map.mode == GameMode::Football {
+        if state.map.mode == GameMode::Football || state.map.mode == GameMode::Ctf {
             if let Some(ball) = &state.ball {
                 let c = Color::from_rgb(250, 230, 120);
                 mb.circle(DrawMode::fill(), ball.pos, ball.radius, 0.5, c)?;
@@ -208,6 +208,51 @@ impl Renderer {
         )?;
         canvas.draw(&bar_back, graphics::DrawParam::default());
         canvas.draw(&bar_front, graphics::DrawParam::default());
+
+        if state.map.mode == GameMode::Ctf {
+            let text = if let Some(ball) = &state.ball {
+                if let Some(carrier_id) = &ball.carrier {
+                    // Find player nick
+                    let nick = state
+                        .other_players
+                        .iter()
+                        .find(|p| &p.id == carrier_id)
+                        .map(|p| p.nick.clone())
+                        .or_else(|| {
+                            if state.player.id.as_ref() == Some(carrier_id) {
+                                Some(carrier_id.to_string())
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or_else(|| carrier_id.clone());
+
+
+                    format!(
+                        "FLAG: {} - {:.1}s",
+                        nick,
+                        ball.possession_time
+                    )
+                } else {
+                    "FLAG: free".to_string()
+                }
+            } else {
+                "FLAG: free".to_string()
+            };
+
+            let hud_text = Text::new(
+                TextFragment::new(text)
+                    .color(Color::WHITE)
+                    .scale(18.0),
+            );
+
+            canvas.draw(
+                &hud_text,
+                graphics::DrawParam::default()
+                    .dest(Vec2::new(20.0, state.map.height - 60.0))
+                    .z(200),
+            );
+        }
 
         canvas.finish(ctx)
     }

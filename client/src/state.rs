@@ -23,6 +23,9 @@ pub struct Ball {
     pub pos: Vec2,
     pub vel: Vec2,
     pub radius: f32,
+    //ctf:
+    pub carrier: Option<String>,
+    pub possession_time: f32,
 }
 
 pub struct GameState {
@@ -129,6 +132,8 @@ impl GameState {
             pos: Vec2::new(b.pos[0], b.pos[1]),
             vel: Vec2::new(b.vel[0], b.vel[1]),
             radius: self.map.physics.ball_radius,
+            carrier: b.carrier,
+            possession_time: b.possession_time
         });
         self.time_elapsed = time_elapsed;
         self.phase = phase;
