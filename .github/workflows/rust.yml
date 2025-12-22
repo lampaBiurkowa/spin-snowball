@@ -20,11 +20,13 @@ jobs:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            bin_name: spin-snowball-client.exe
+            client_bin: spin-snowball-client.exe
+            mapeditor_bin: spin-snowball-mapeditor.exe
 
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            bin_name: spin-snowball-client
+            client_bin: spin-snowball-client
+            mapeditor_bin: spin-snowball-mapeditor
 
     steps:
       - name: Checkout repository
@@ -45,16 +47,26 @@ jobs:
       - name: Build client (${{ matrix.target }})
         run: cargo build --release --target=${{ matrix.target }} -p spin-snowball-client
 
+      - name: Build map editor (${{ matrix.target }})
+        run: cargo build --release --target=${{ matrix.target }} -p spin-snowball-mapeditor
+
       - name: Package artifacts
         run: |
           mkdir artifacts
-          cp target/${{ matrix.target }}/release/${{ matrix.bin_name }} artifacts/
+          cp target/${{ matrix.target }}/release/${{ matrix.client_bin }} artifacts/
+          cp target/${{ matrix.target }}/release/${{ matrix.mapeditor_bin }} artifacts/
 
       - name: Upload client binary
         uses: actions/upload-artifact@v4
         with:
           name: client-${{ matrix.target }}
-          path: artifacts/${{ matrix.bin_name }}
+          path: artifacts/${{ matrix.client_bin }}
+
+      - name: Upload map editor binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapeditor-${{ matrix.target }}
+          path: artifacts/${{ matrix.mapeditor_bin }}
 
 
   deploy-image:
