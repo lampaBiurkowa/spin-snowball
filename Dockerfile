@@ -10,10 +10,12 @@ COPY Cargo.toml Cargo.lock ./
 COPY server/Cargo.toml server/Cargo.toml
 COPY client/Cargo.toml client/Cargo.toml
 COPY shared/Cargo.toml shared/Cargo.toml
+COPY map_editor/Cargo.toml map_editor/Cargo.toml
 COPY default_map.json default_map.json
 COPY server server
 COPY client client
 COPY shared shared
+COPY map_editor map_editor
 
 RUN cargo build --release -p spin-snowball-server
 
