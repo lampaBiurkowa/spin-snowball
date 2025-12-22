@@ -21,9 +21,6 @@ pub struct Ball {
     pub pos: Vec2,
     pub vel: Vec2,
     pub radius: f32,
-    //ctf:
-    pub carrier: Option<String>,
-    pub possession_time: f32,
 }
 
 pub struct GameState {
@@ -41,6 +38,10 @@ pub struct GameState {
     pub paused: bool,
     pub team1_color: ColorDef,
     pub team2_color: ColorDef,
+    pub action_player: Option<String>,
+    pub action_time: f32,
+    pub game_mode: GameMode,
+    pub action_target_time: Option<f32>
 }
 
 impl GameState {
@@ -77,6 +78,10 @@ impl GameState {
                 b: 200.0 / 255.0,
                 a: 1.0,
             },
+            action_player: None,
+            action_time: 0.0,
+            game_mode: GameMode::Fight,
+            action_target_time: Some(10.0)
         }
     }
 
@@ -91,7 +96,9 @@ impl GameState {
         paused: bool,
         team1_color: ColorDef,
         team2_color: ColorDef,
-        player_with_active_action: Option<(String, f32)>
+        player_with_active_action: Option<(String, f32)>,
+        game_mode: GameMode,
+        action_target_time: Option<f32>
     ) {
         if let Some(id) = &self.player.id {
             for p in &players {
@@ -126,7 +133,7 @@ impl GameState {
             .collect();
         self.scores = scores;
 
-        let (carrier, possession_time) = match player_with_active_action {
+        let (action_player, action_time) = match player_with_active_action {
             Some(x) => (Some(x.0), x.1),
             None => (None, 0.0),
         };
@@ -134,8 +141,6 @@ impl GameState {
             pos: Vec2::new(b.pos[0], b.pos[1]),
             vel: Vec2::new(b.vel[0], b.vel[1]),
             radius: self.map.physics.ball_radius,
-            carrier: carrier,
-            possession_time: possession_time
         });
         self.time_elapsed = time_elapsed;
         self.phase = phase;
@@ -149,6 +154,10 @@ impl GameState {
         self.paused = paused;
         self.team1_color = team1_color;
         self.team2_color = team2_color;
+        self.action_player = action_player;
+        self.action_time = action_time;
+        self.game_mode = game_mode;
+        self.action_target_time = action_target_time;
     }
 
     pub fn forward_vector(&self) -> Vec2 {

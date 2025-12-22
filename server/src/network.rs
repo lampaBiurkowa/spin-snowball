@@ -146,6 +146,10 @@ pub async fn handle_connection(
                                     let _ = tx.send(Message::Text(txt.clone().into()));
                                 }
                             },
+                            Command::SetGameMode { game_mode, action_target_time } => {
+                                gs.game_mode = game_mode;
+                                gs.action_target_time = action_target_time;
+                            }
                         }
                     }
                     Err(e) => {

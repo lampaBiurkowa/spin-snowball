@@ -79,14 +79,7 @@ impl Renderer {
                         c.a *= 0.6;
                     }
 
-                    mb.line(
-                        &[
-                            Vec2::new(*ax, *ay),
-                            Vec2::new(*bx, *by),
-                        ],
-                        3.0,
-                        c,
-                    )?;
+                    mb.line(&[Vec2::new(*ax, *ay), Vec2::new(*bx, *by)], 3.0, c)?;
                 }
             }
         }
@@ -111,7 +104,12 @@ impl Renderer {
             let inset = stroke_width / 2.0;
             mb.rectangle(
                 DrawMode::fill(),
-                graphics::Rect::new(goal.x + inset, goal.y + inset, goal.w - stroke_width, goal.h - stroke_width),
+                graphics::Rect::new(
+                    goal.x + inset,
+                    goal.y + inset,
+                    goal.w - stroke_width,
+                    goal.h - stroke_width,
+                ),
                 fill,
             )?;
         }
@@ -139,7 +137,10 @@ impl Renderer {
                 );
 
                 let dims = text.measure(ctx)?;
-                let text_pos = Vec2::new(p.pos[0] - dims.x / 2.0, p.pos[1] + state.map.physics.player_radius + 4.0);
+                let text_pos = Vec2::new(
+                    p.pos[0] - dims.x / 2.0,
+                    p.pos[1] + state.map.physics.player_radius + 4.0,
+                );
                 canvas.draw(&text, graphics::DrawParam::default().dest(text_pos).z(100));
             }
         }
@@ -179,7 +180,13 @@ impl Renderer {
         // snowballs
         for sb in &state.snowballs {
             let c = { Color::WHITE };
-            mb.circle(DrawMode::fill(), Vec2::new(sb.pos.x, sb.pos.y), state.map.physics.snowball_radius, 0.5, c)?;
+            mb.circle(
+                DrawMode::fill(),
+                Vec2::new(sb.pos.x, sb.pos.y),
+                state.map.physics.snowball_radius,
+                0.5,
+                c,
+            )?;
         }
 
         if let Some(ball) = &state.ball {
@@ -215,42 +222,28 @@ impl Renderer {
         canvas.draw(&bar_back, graphics::DrawParam::default());
         canvas.draw(&bar_front, graphics::DrawParam::default());
 
-        if state.map.mode == GameMode::Ctf {
-            let text = if let Some(ball) = &state.ball {
-                if let Some(carrier_id) = &ball.carrier {
-                    // Find player nick
-                    let nick = state
-                        .other_players
-                        .iter()
-                        .find(|p| &p.id == carrier_id)
-                        .map(|p| p.nick.clone())
-                        .or_else(|| {
-                            if state.player.id.as_ref() == Some(carrier_id) {
-                                Some(carrier_id.to_string())
-                            } else {
-                                None
-                            }
-                        })
-                        .unwrap_or_else(|| carrier_id.clone());
+        if state.game_mode == GameMode::Htf {
+            let text = if let Some(carrier_id) = &state.action_player {
+                let nick = state
+                    .other_players
+                    .iter()
+                    .find(|p| &p.id == carrier_id)
+                    .map(|p| p.nick.clone())
+                    .or_else(|| {
+                        if state.player.id.as_ref() == Some(carrier_id) {
+                            Some(carrier_id.to_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| carrier_id.clone());
 
-
-                    format!(
-                        "FLAG: {} - {:.1}s",
-                        nick,
-                        ball.possession_time
-                    )
-                } else {
-                    "FLAG: free".to_string()
-                }
+                format!("FLAG: {} - {:.1}s", nick, state.action_time)
             } else {
                 "FLAG: free".to_string()
             };
 
-            let hud_text = Text::new(
-                TextFragment::new(text)
-                    .color(Color::WHITE)
-                    .scale(18.0),
-            );
+            let hud_text = Text::new(TextFragment::new(text).color(Color::WHITE).scale(18.0));
 
             canvas.draw(
                 &hud_text,
@@ -258,6 +251,56 @@ impl Renderer {
                     .dest(Vec2::new(20.0, state.map.height - 60.0))
                     .z(200),
             );
+        }
+
+        if state.game_mode == GameMode::KingOfTheHill {
+            let text = if let Some(king_id) = &state.action_player {
+                let nick = state
+                    .other_players
+                    .iter()
+                    .find(|p| &p.id == king_id)
+                    .map(|p| p.nick.clone())
+                    .or_else(|| {
+                        if state.player.id.as_ref() == Some(king_id) {
+                            Some(king_id.to_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| king_id.clone());
+
+                format!("HILL: {} - {:.1}s", nick, state.action_time)
+            } else {
+                "HILL: contested".to_string()
+            };
+
+            let hud_text = Text::new(TextFragment::new(text).color(Color::WHITE).scale(18.0));
+
+            canvas.draw(
+                &hud_text,
+                graphics::DrawParam::default()
+                    .dest(Vec2::new(20.0, state.map.height - 60.0))
+                    .z(200),
+            );
+        }
+
+        if state.game_mode == GameMode::DefendTerritory {
+            if let Some(action_target_time) = state.action_target_time {
+                let text = if state.action_time < action_target_time {
+                    format!("TERRITORY: {:.1}s", state.action_time)
+                } else {
+                    "TERRITORY: deciding…".to_string()
+                };
+
+                let hud_text = Text::new(TextFragment::new(text).color(Color::WHITE).scale(18.0));
+
+                canvas.draw(
+                    &hud_text,
+                    graphics::DrawParam::default()
+                        .dest(Vec2::new(20.0, state.map.height - 60.0))
+                        .z(200),
+                );
+            }
         }
 
         canvas.finish(ctx)

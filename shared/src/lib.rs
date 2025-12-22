@@ -42,6 +42,10 @@ pub enum Command {
     },
     SetPhysicsSettings { 
         settings: PhysicsSettings
+    },
+    SetGameMode {
+        game_mode: GameMode,
+        action_target_time: Option<f32>
     }
 }
 
@@ -81,6 +85,8 @@ pub enum ServerMessage {
         team1_color: ColorDef,
         team2_color: ColorDef,
         player_with_active_action: Option<(String, f32)>,
+        game_mode: GameMode,
+        action_target_time: Option<f32>
     },
     PhysicsSettings {
         settings: PhysicsSettings,
@@ -192,7 +198,6 @@ pub struct GameMap {
     pub height: f32,
     pub objects: Vec<MapObject>,
     pub physics: PhysicsSettings,
-    pub mode: GameMode,
     pub team1: TeamDef,
     pub team2: TeamDef,
     pub ball: Option<BallDef>,
@@ -234,7 +239,7 @@ impl Default for PhysicsSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum GameMode {
     Fight,
@@ -243,7 +248,8 @@ pub enum GameMode {
     Htf,
     KingOfTheHill,
     Race,
-    DefendTerritory
+    DefendTerritory,
+    Shooter
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamDef {

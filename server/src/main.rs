@@ -10,7 +10,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::network::handle_connection;
-use crate::physics::{SimulateCollisionResponse, simulate_collisions, simulate_movement};
+use crate::physics::{simulate_collisions, simulate_movement, SimulateCollisionResponse};
 
 mod network;
 mod physics;
@@ -148,16 +148,17 @@ struct GameState {
     team1_color: ColorDef,
     team2_color: ColorDef,
     player_with_active_action: Option<(String, f32)>,
+    game_mode: GameMode,
+    action_target_time: Option<f32>,
 }
 
 impl GameState {
     fn new(map: GameMap) -> Self {
         let ball = match map.ball.as_ref() {
-            Some(b) =>
-                Some(Ball {
-                    pos: Vec2::new(b.spawn_x, b.spawn_y),
-                    vel: Vec2::ZERO,
-                }),
+            Some(b) => Some(Ball {
+                pos: Vec2::new(b.spawn_x, b.spawn_y),
+                vel: Vec2::ZERO,
+            }),
             _ => None,
         };
         println!("HEJA {:?}", ball.is_some());
@@ -184,13 +185,20 @@ impl GameState {
                 b: 200.0 / 255.0,
                 a: 1.0,
             },
-            player_with_active_action: None
+            player_with_active_action: None,
+            game_mode: GameMode::Fight,
+            action_target_time: Some(10.0),
         }
     }
 
-
     fn get_team_of_player(&self, player_id: &str) -> Option<Team> {
-        self.players.get(player_id).and_then(|x| if let PlayerStatus::Playing(x) = x.status { Some(x) } else { None } )
+        self.players.get(player_id).and_then(|x| {
+            if let PlayerStatus::Playing(x) = x.status {
+                Some(x)
+            } else {
+                None
+            }
+        })
     }
 
     fn add_new_player(&mut self, id: String) {
@@ -370,7 +378,7 @@ impl GameState {
                     p.vel = Vec2::ZERO;
                     p.rot_deg = -90.0;
                 }
-                PlayerStatus::Spectator => ()
+                PlayerStatus::Spectator => (),
             }
         }
 
@@ -437,7 +445,8 @@ enum GameModeRules {
     Fight,
     KingOfTheHill,
     Race,
-    DefendTerritory
+    DefendTerritory,
+    Shooter,
 }
 
 impl GameModeRules {
@@ -449,7 +458,8 @@ impl GameModeRules {
             GameMode::Htf => Self::HoldTheFlag,
             GameMode::KingOfTheHill => Self::KingOfTheHill,
             GameMode::Race => Self::Race,
-            GameMode::DefendTerritory => Self::DefendTerritory
+            GameMode::DefendTerritory => Self::DefendTerritory,
+            GameMode::Shooter => Self::Shooter,
         }
     }
 
@@ -458,28 +468,27 @@ impl GameModeRules {
             GameModeRules::HoldTheFlag => {
                 if let Some((player, time)) = state.player_with_active_action.clone() {
                     let mut new_time = time + delta;
-                    if new_time >= 10.0 {
+                    if new_time >= state.action_target_time.unwrap_or(10.0) {
                         let team = state.get_team_of_player(&player).unwrap();
                         *state.scores.entry(team).or_insert(0) += 1;
                         new_time = 0.0;
                     }
                     state.player_with_active_action = Some((player.clone(), new_time));
                 }
-            },
+            }
             GameModeRules::KingOfTheHill => {
                 if let Some((player, time)) = state.player_with_active_action.clone() {
                     let new_time = time + delta;
-                    if new_time >= 10.0 {
+                    if new_time >= state.action_target_time.unwrap_or(10.0) {
                         let team = state.get_team_of_player(&player).unwrap();
                         *state.scores.entry(team).or_insert(0) += 1;
                         state.player_with_active_action = None;
-                        // new_time = 0.0; //TODO remove?
                         state.reset_positions();
                     } else {
                         state.player_with_active_action = Some((player, new_time));
                     }
                 }
-            },
+            }
             GameModeRules::DefendTerritory => {
                 if let Some((placeholder, time)) = state.player_with_active_action.clone() {
                     let new_time = time + delta;
@@ -491,7 +500,11 @@ impl GameModeRules {
             _ => (),
         }
     }
-    fn handle_collisions_response(&self, response: &SimulateCollisionResponse, state: &mut GameState) {
+    fn handle_collisions_response(
+        &self,
+        response: &SimulateCollisionResponse,
+        state: &mut GameState,
+    ) {
         match self {
             GameModeRules::CaptureTheFlag => {
                 if let Some((player_id, team)) = &response.ball_touched_by_player {
@@ -500,7 +513,10 @@ impl GameModeRules {
                     }
                 }
 
-                let ball_spawn = Vec2::new(state.map.ball.clone().unwrap().spawn_x, state.map.ball.clone().unwrap().spawn_y);
+                let ball_spawn = Vec2::new(
+                    state.map.ball.clone().unwrap().spawn_x,
+                    state.map.ball.clone().unwrap().spawn_y,
+                );
                 for player_id in &response.players_hit_by_snowball {
                     if let Some(ball) = &mut state.ball {
                         if state.player_with_active_action.is_some() {
@@ -525,14 +541,14 @@ impl GameModeRules {
                 }
 
                 if let Some(ball) = &mut state.ball {
-                    for (player, value) in &state.player_with_active_action {
+                    while let Some((player, value)) = &state.player_with_active_action {
                         if let Some(player) = state.players.get(player) {
                             ball.pos = player.pos;
                             ball.vel = Vec2::ZERO;
                         }
                     }
                 }
-            },
+            }
             GameModeRules::HoldTheFlag => {
                 if let Some((player_id, _)) = &response.ball_touched_by_player {
                     if state.player_with_active_action.is_none() {
@@ -540,7 +556,10 @@ impl GameModeRules {
                     }
                 }
 
-                let ball_spawn = Vec2::new(state.map.ball.clone().unwrap().spawn_x, state.map.ball.clone().unwrap().spawn_y);
+                let ball_spawn = Vec2::new(
+                    state.map.ball.clone().unwrap().spawn_x,
+                    state.map.ball.clone().unwrap().spawn_y,
+                );
                 for hit_player_id in response.players_hit_by_snowball.clone() {
                     if let Some(ball) = &mut state.ball {
                         if let Some((carrying_player_id, _)) = &state.player_with_active_action {
@@ -565,22 +584,17 @@ impl GameModeRules {
                     ball.pos = pos;
                     ball.vel = Vec2::ZERO;
                 }
-            },
+            }
             GameModeRules::Football => {
                 if let Some(scoring_team) = &response.ball_in_goal_of_team {
                     *state.scores.entry(*scoring_team).or_insert(0) += 1;
 
                     state.reset_positions();
                 }
-            },
+            }
             GameModeRules::Fight => {
                 for id in response.players_in_holes.iter() {
-                    if state
-                        .players
-                        .values_mut()
-                        .find(|x| x.id == *id)
-                        .is_some()
-                    {
+                    if state.players.values_mut().find(|x| x.id == *id).is_some() {
                         state.reset_positions();
                     }
                     if let Some(team) = state.get_team_of_player(id) {
@@ -591,13 +605,10 @@ impl GameModeRules {
                         }
                     }
                 }
-            },
+            }
             GameModeRules::KingOfTheHill => {
                 if let Some((king_id, _)) = &state.player_with_active_action {
-                    let still_in_hole = response
-                        .players_in_holes
-                        .iter()
-                        .any(|id| id == king_id);
+                    let still_in_hole = response.players_in_holes.iter().any(|id| id == king_id);
 
                     if !still_in_hole {
                         state.player_with_active_action = None;
@@ -609,17 +620,17 @@ impl GameModeRules {
                         state.player_with_active_action = Some((player_id.clone(), 0.0));
                     }
                 }
-            },
+            }
             GameModeRules::Race => {
                 if let Some(player_id) = response.players_in_holes.first() {
                     let team = state.get_team_of_player(player_id).unwrap();
                     *state.scores.entry(team).or_insert(0) += 1;
                     state.reset_positions();
                 }
-            },
+            }
             GameModeRules::DefendTerritory => {
                 if let Some((_placeholder, time)) = &state.player_with_active_action {
-                    if *time >= 10.0 {
+                    if *time >= state.action_target_time.unwrap_or(10.0) {
                         if let Some(goal_team) = response.ball_in_goal_of_team {
                             *state.scores.entry(goal_team).or_insert(0) += 1;
 
@@ -628,7 +639,18 @@ impl GameModeRules {
                         }
                     }
                 }
-            },
+            }
+            GameModeRules::Shooter => {
+                for hit_player_id in &response.players_hit_by_snowball {
+                    if let Some(hit_team) = state.get_team_of_player(hit_player_id) {
+                        for (team, score) in state.scores.iter_mut() {
+                            if *team != hit_team {
+                                *score += 1;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -658,7 +680,9 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                         paused: gs.paused,
                         team1_color: gs.team1_color.clone(),
                         team2_color: gs.team2_color.clone(),
-                        player_with_active_action: gs.player_with_active_action.clone()
+                        player_with_active_action: gs.player_with_active_action.clone(),
+                        game_mode: gs.game_mode,
+                        action_target_time: gs.action_target_time,
                     };
                     let txt = serde_json::to_string(&msg).unwrap();
 
@@ -675,10 +699,11 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
 
                 if let MatchPhase::Playing { .. } = phase {
                     gs.logic_step(DT);
-                    GameModeRules::from_map_game_mode(gs.map.mode.clone()).logic_step(&mut gs, DT);
+                    GameModeRules::from_map_game_mode(gs.game_mode.clone()).logic_step(&mut gs, DT);
                     simulate_movement(&mut gs, DT);
                     let response = simulate_collisions(&mut gs);
-                    GameModeRules::from_map_game_mode(gs.map.mode.clone()).handle_collisions_response(&response, &mut gs);
+                    GameModeRules::from_map_game_mode(gs.game_mode.clone())
+                        .handle_collisions_response(&response, &mut gs);
 
                     for sid in response.snowballs_in_holes.into_iter() {
                         gs.snowballs.remove(&sid);
@@ -703,7 +728,9 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                     paused: gs.paused,
                     team1_color: gs.team1_color.clone(),
                     team2_color: gs.team2_color.clone(),
-                    player_with_active_action: gs.player_with_active_action.clone()
+                    player_with_active_action: gs.player_with_active_action.clone(),
+                    game_mode: gs.game_mode,
+                    action_target_time: gs.action_target_time,
                 };
                 let txt = serde_json::to_string(&msg).unwrap();
 

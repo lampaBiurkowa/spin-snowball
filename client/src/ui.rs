@@ -1,5 +1,8 @@
 use ggegui::egui;
-use ggez::{glam::Vec2, graphics::{Canvas, DrawParam}};
+use ggez::{
+    glam::Vec2,
+    graphics::{Canvas, DrawParam},
+};
 use spin_snowball_shared::*;
 use std::sync::mpsc::Sender;
 
@@ -30,6 +33,10 @@ pub enum UIMessage {
     SetPhysicsSettings {
         settings: PhysicsSettings,
     },
+    SetGameMode {
+        game_mode: GameMode,
+        action_target_time: Option<f32>,
+    },
 }
 
 pub struct UiState {
@@ -44,7 +51,8 @@ pub struct UiState {
     team1_color: egui::Color32,
     team2_color: egui::Color32,
     show_physics: bool,
-    physics_edit: Option<PhysicsSettings>
+    physics_edit: Option<PhysicsSettings>,
+    action_target_time: f32,
 }
 
 impl UiState {
@@ -61,7 +69,8 @@ impl UiState {
             team1_color: egui::Color32::from_rgb(200, 0, 0),
             team2_color: egui::Color32::from_rgb(0, 0, 200),
             show_physics: false,
-            physics_edit: None
+            physics_edit: None,
+            action_target_time: 10.0,
         }
     }
 
@@ -126,8 +135,14 @@ impl UiState {
                     ui.label(format!("Time: {:.1}", state.time_elapsed));
                     ui.separator();
 
-                    ui.label(format!("Team1: {}", state.scores.get(&Team::Team1).unwrap_or(&0)));
-                    ui.label(format!("Team2: {}", state.scores.get(&Team::Team2).unwrap_or(&0)));
+                    ui.label(format!(
+                        "Team1: {}",
+                        state.scores.get(&Team::Team1).unwrap_or(&0)
+                    ));
+                    ui.label(format!(
+                        "Team2: {}",
+                        state.scores.get(&Team::Team2).unwrap_or(&0)
+                    ));
                 });
             });
     }
@@ -229,6 +244,65 @@ impl UiState {
         let match_stopped = matches!(state.phase, MatchPhase::Lobby);
 
         ui.heading("Match Settings");
+        ui.separator();
+        ui.add_enabled_ui(match_stopped, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Game mode:");
+
+                egui::ComboBox::from_id_source("game_mode_select")
+                    .selected_text(game_mode_label(state.game_mode))
+                    .show_ui(ui, |ui| {
+                        for mode in [
+                            GameMode::Fight,
+                            GameMode::Football,
+                            GameMode::Ctf,
+                            GameMode::Htf,
+                            GameMode::KingOfTheHill,
+                            GameMode::Race,
+                            GameMode::DefendTerritory,
+                            GameMode::Shooter,
+                        ] {
+                            if ui
+                                .selectable_label(state.game_mode == mode, game_mode_label(mode))
+                                .clicked()
+                            {
+                                self.sender
+                                    .send(UIMessage::SetGameMode {
+                                        game_mode: mode,
+                                        action_target_time: if mode_uses_action_timer(mode) {
+                                            Some(self.action_target_time)
+                                        } else {
+                                            None
+                                        },
+                                    })
+                                    .unwrap();
+                            }
+                        }
+                    });
+            });
+        });
+
+        if mode_uses_action_timer(state.game_mode) {
+            ui.horizontal(|ui| {
+                ui.label("Target time (sec):");
+                ui.add(
+                    egui::DragValue::new(&mut self.action_target_time)
+                        .clamp_range(1.0..=60.0)
+                        .speed(0.5),
+                );
+
+                if ui.button("Set").clicked() {
+                    self.sender
+                        .send(UIMessage::SetGameMode {
+                            game_mode: state.game_mode,
+                            action_target_time: Some(self.action_target_time),
+                        })
+                        .unwrap();
+                }
+            });
+        }
+
+        ui.separator();
 
         ui.add_enabled_ui(match_stopped, |ui| {
             ui.horizontal(|ui| {
@@ -364,7 +438,9 @@ impl UiState {
             .show(egui_ctx, |ui| {
                 let settings = self.physics_edit.as_mut().unwrap();
                 if let Some(x) = draw_physics_settings(ui, settings) {
-                    self.sender.send(UIMessage::SetPhysicsSettings { settings: x }).unwrap();
+                    self.sender
+                        .send(UIMessage::SetPhysicsSettings { settings: x })
+                        .unwrap();
                 }
             });
     }
@@ -374,13 +450,22 @@ impl UiState {
     }
 }
 
-fn draw_physics_settings(ui: &mut egui::Ui, physics: &mut PhysicsSettings) -> Option<PhysicsSettings> {
+fn draw_physics_settings(
+    ui: &mut egui::Ui,
+    physics: &mut PhysicsSettings,
+) -> Option<PhysicsSettings> {
     ui.heading("Players");
     ui.add_space(4.0);
 
     drag(ui, "Radius", &mut physics.player_radius, 0.1, 2.0..=200.0);
     drag(ui, "Mass", &mut physics.player_mass, 0.1, 0.1..=200.0);
-    drag(ui, "Bounciness", &mut physics.player_bounciness, 0.01, 0.0..=5.0);
+    drag(
+        ui,
+        "Bounciness",
+        &mut physics.player_bounciness,
+        0.01,
+        0.0..=5.0,
+    );
 
     ui.separator();
     ui.heading("Snowballs");
@@ -388,8 +473,20 @@ fn draw_physics_settings(ui: &mut egui::Ui, physics: &mut PhysicsSettings) -> Op
 
     drag(ui, "Radius", &mut physics.snowball_radius, 0.1, 1.0..=200.0);
     drag(ui, "Mass", &mut physics.snowball_mass, 0.1, 0.1..=200.0);
-    drag(ui, "Bounciness", &mut physics.snowball_bounciness, 0.01, 0.0..=5.0);
-    drag(ui, "Lifetime (s)", &mut physics.snowball_lifetime_sec, 0.01, 0.0..=10.0);
+    drag(
+        ui,
+        "Bounciness",
+        &mut physics.snowball_bounciness,
+        0.01,
+        0.0..=5.0,
+    );
+    drag(
+        ui,
+        "Lifetime (s)",
+        &mut physics.snowball_lifetime_sec,
+        0.01,
+        0.0..=10.0,
+    );
 
     ui.separator();
     ui.heading("Ball");
@@ -397,13 +494,25 @@ fn draw_physics_settings(ui: &mut egui::Ui, physics: &mut PhysicsSettings) -> Op
 
     drag(ui, "Radius", &mut physics.ball_radius, 0.1, 2.0..=200.0);
     drag(ui, "Mass", &mut physics.ball_mass, 0.1, 0.1..=200.0);
-    drag(ui, "Bounciness", &mut physics.ball_bounciness, 0.01, 0.0..=5.0);
+    drag(
+        ui,
+        "Bounciness",
+        &mut physics.ball_bounciness,
+        0.01,
+        0.0..=5.0,
+    );
 
     ui.separator();
     ui.heading("Environment");
     ui.add_space(4.0);
 
-    drag(ui, "Friction / frame", &mut physics.friction_per_frame, 0.0001, 0.0..=1.0);
+    drag(
+        ui,
+        "Friction / frame",
+        &mut physics.friction_per_frame,
+        0.0001,
+        0.0..=1.0,
+    );
     if ui.button("Set").clicked() {
         Some(physics.clone())
     } else {
@@ -422,14 +531,9 @@ fn drag<T>(
 {
     ui.horizontal(|ui| {
         ui.label(label);
-        ui.add(
-            egui::DragValue::new(value)
-                .speed(speed)
-                .clamp_range(range),
-        );
+        ui.add(egui::DragValue::new(value).speed(speed).clamp_range(range));
     });
 }
-
 
 fn egui_to_server_color(c: egui::Color32) -> ColorDef {
     ColorDef {
@@ -438,4 +542,24 @@ fn egui_to_server_color(c: egui::Color32) -> ColorDef {
         b: c.b() as f32 / 255.0,
         a: c.a() as f32 / 255.0,
     }
+}
+
+fn game_mode_label(mode: GameMode) -> &'static str {
+    match mode {
+        GameMode::Fight => "Fight",
+        GameMode::Football => "Football",
+        GameMode::Ctf => "Capture The Flag",
+        GameMode::Htf => "Hold The Flag",
+        GameMode::KingOfTheHill => "King of the Hill",
+        GameMode::Race => "Race",
+        GameMode::DefendTerritory => "Defend Territory",
+        GameMode::Shooter => "Shooter",
+    }
+}
+
+fn mode_uses_action_timer(mode: GameMode) -> bool {
+    matches!(
+        mode,
+        GameMode::Htf | GameMode::KingOfTheHill | GameMode::DefendTerritory
+    )
 }

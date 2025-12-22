@@ -2,7 +2,6 @@
   "name": "Classic Arena",
   "width": 1200,
   "height": 800,
-  "mode": "defendTerritory",
   "physics": {
     "player_radius": 25.0,
     "player_mass": 1.0,
@@ -32,7 +31,7 @@
     {
       "x": 0,
       "y": 300,
-      "w": 500,
+      "w": 30,
       "h": 200,
       "team": "Team1"
     },

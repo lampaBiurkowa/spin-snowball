@@ -110,6 +110,11 @@ impl MainState {
                         cmd: Command::SetPhysicsSettings { settings },
                     });
                 }
+                UIMessage::SetGameMode { game_mode, action_target_time } => {
+                    self.network.send(ClientMessage::Command {
+                        cmd: Command::SetGameMode { game_mode, action_target_time }
+                    });
+                },
             }
         }
     }
@@ -159,7 +164,9 @@ impl EventHandler for MainState {
                     paused,
                     team1_color,
                     team2_color,
-                    player_with_active_action
+                    player_with_active_action,
+                    game_mode,
+                    action_target_time
                 } => {
                     self.game.apply_world_state(
                         players,
@@ -171,7 +178,9 @@ impl EventHandler for MainState {
                         paused,
                         team1_color,
                         team2_color,
-                        player_with_active_action
+                        player_with_active_action,
+                        game_mode,
+                        action_target_time
                     );
                 }
                 ServerMessage::Pong { .. } => {}
