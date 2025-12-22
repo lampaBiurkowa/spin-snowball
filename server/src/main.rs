@@ -541,7 +541,7 @@ impl GameModeRules {
                 }
 
                 if let Some(ball) = &mut state.ball {
-                    while let Some((player, value)) = &state.player_with_active_action {
+                    if let Some((player, _)) = &state.player_with_active_action {
                         if let Some(player) = state.players.get(player) {
                             ball.pos = player.pos;
                             ball.vel = Vec2::ZERO;
