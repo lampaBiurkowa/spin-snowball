@@ -96,12 +96,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.100"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
-
-[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2748,15 +2742,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
-name = "signal-hook-registry"
-version = "1.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2a4719bff48cee6b39d12c020eeb490953ad2443b7055bd0b21fca26bd8c28b"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "simd-adler32"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2833,23 +2818,19 @@ version = "0.1.0"
 dependencies = [
  "ggegui",
  "ggez",
- "glam",
  "serde_json",
  "spin-snowball-shared",
  "tokio",
  "tungstenite",
  "url",
- "uuid",
 ]
 
 [[package]]
 name = "spin-snowball-server"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "futures",
  "glam",
- "rand",
  "serde_json",
  "spin-snowball-shared",
  "tokio",
@@ -2863,7 +2844,6 @@ name = "spin-snowball-shared"
 version = "0.1.0"
 dependencies = [
  "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -3143,9 +3123,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
- "parking_lot",
  "pin-project-lite",
- "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",

@@ -7,8 +7,6 @@ pub struct Player {
     pub pos: Vec2,
     pub vel: Vec2,
     pub rotation: f32,
-
-    pub spin_timer: f32,
     pub max_charge: f32,
 }
 
@@ -41,8 +39,8 @@ pub struct GameState {
     pub all_players: Vec<PlayerState>,
     pub player_status: PlayerStatus,
     pub paused: bool,
-    pub team1_color: TeamColor,
-    pub team2_color: TeamColor,
+    pub team1_color: ColorDef,
+    pub team2_color: ColorDef,
 }
 
 impl GameState {
@@ -54,7 +52,6 @@ impl GameState {
                 pos: center,
                 vel: Vec2::ZERO,
                 rotation: -90.0,
-                spin_timer: 0.0,
                 max_charge: 1.0,
             },
             other_players: vec![],
@@ -68,17 +65,17 @@ impl GameState {
             all_players: vec![],
             player_status: PlayerStatus::Spectator,
             paused: Default::default(),
-            team1_color: TeamColor {
-                r: 200,
-                g: 0,
-                b: 0,
-                a: 255,
+            team1_color: ColorDef {
+                r: 200.0 / 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
             },
-            team2_color: TeamColor {
-                r: 0,
-                g: 0,
-                b: 200,
-                a: 255,
+            team2_color: ColorDef {
+                r: 0.0,
+                g: 0.0,
+                b: 200.0 / 255.0,
+                a: 1.0,
             },
         }
     }
@@ -92,8 +89,9 @@ impl GameState {
         phase: MatchPhase,
         time_elapsed: f32,
         paused: bool,
-        team1_color: TeamColor,
-        team2_color: TeamColor,
+        team1_color: ColorDef,
+        team2_color: ColorDef,
+        player_with_active_action: Option<(String, f32)>
     ) {
         if let Some(id) = &self.player.id {
             for p in &players {
@@ -128,12 +126,16 @@ impl GameState {
             .collect();
         self.scores = scores;
 
+        let (carrier, possession_time) = match player_with_active_action {
+            Some(x) => (Some(x.0), x.1),
+            None => (None, 0.0),
+        };
         self.ball = ball.map(|b| Ball {
             pos: Vec2::new(b.pos[0], b.pos[1]),
             vel: Vec2::new(b.vel[0], b.vel[1]),
             radius: self.map.physics.ball_radius,
-            carrier: b.carrier,
-            possession_time: b.possession_time
+            carrier: carrier,
+            possession_time: possession_time
         });
         self.time_elapsed = time_elapsed;
         self.phase = phase;

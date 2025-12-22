@@ -1,5 +1,5 @@
 use ggegui::egui;
-use ggez::graphics::{Canvas, DrawParam};
+use ggez::{glam::Vec2, graphics::{Canvas, DrawParam}};
 use spin_snowball_shared::*;
 use std::sync::mpsc::Sender;
 
@@ -23,8 +23,8 @@ pub enum UIMessage {
     SetNick {
         nick: String,
     },
-    SetTeamColor {
-        color: TeamColor,
+    SetColorDef {
+        color: ColorDef,
         team: Team,
     },
     SetPhysicsSettings {
@@ -67,7 +67,7 @@ impl UiState {
 
     pub fn render(&mut self, ctx: &mut ggez::Context) {
         let mut canvas = Canvas::from_frame(ctx, None);
-        canvas.draw(&self.ctx, DrawParam::default().dest(glam::Vec2::ZERO));
+        canvas.draw(&self.ctx, DrawParam::default().dest(Vec2::ZERO));
         canvas.finish(ctx).unwrap();
     }
 
@@ -108,7 +108,7 @@ impl UiState {
             });
 
         if self.show_physics {
-            self.draw_physics_window(&egui_ctx, state);
+            self.draw_physics_window(&egui_ctx);
         } else if self.physics_edit.is_some() {
             self.physics_edit = None;
         }
@@ -204,7 +204,7 @@ impl UiState {
             ui.label("Team 1:");
             if ui.color_edit_button_srgba(&mut self.team1_color).changed() {
                 self.sender
-                    .send(UIMessage::SetTeamColor {
+                    .send(UIMessage::SetColorDef {
                         team: Team::Team1,
                         color: egui_to_server_color(self.team1_color),
                     })
@@ -216,7 +216,7 @@ impl UiState {
             ui.label("Team 2:");
             if ui.color_edit_button_srgba(&mut self.team2_color).changed() {
                 self.sender
-                    .send(UIMessage::SetTeamColor {
+                    .send(UIMessage::SetColorDef {
                         team: Team::Team2,
                         color: egui_to_server_color(self.team2_color),
                     })
@@ -356,7 +356,7 @@ impl UiState {
             });
     }
 
-    fn draw_physics_window(&mut self, egui_ctx: &egui::Context, state: &GameState) {
+    fn draw_physics_window(&mut self, egui_ctx: &egui::Context) {
         egui::Window::new("Physics")
             .default_width(320.0)
             .resizable(true)
@@ -431,11 +431,11 @@ fn drag<T>(
 }
 
 
-fn egui_to_server_color(c: egui::Color32) -> TeamColor {
-    TeamColor {
-        r: c.r(),
-        g: c.g(),
-        b: c.b(),
-        a: c.a(),
+fn egui_to_server_color(c: egui::Color32) -> ColorDef {
+    ColorDef {
+        r: c.r() as f32 / 255.0,
+        g: c.g() as f32 / 255.0,
+        b: c.b() as f32 / 255.0,
+        a: c.a() as f32 / 255.0,
     }
 }

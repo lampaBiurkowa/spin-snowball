@@ -9,9 +9,8 @@ use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::tungstenite::Message;
 
-// use crate::map::{GameMap, GameMode};
 use crate::network::handle_connection;
-use crate::physics::{simulate_collisions, simulate_movement};
+use crate::physics::{SimulateCollisionResponse, simulate_collisions, simulate_movement};
 
 mod network;
 mod physics;
@@ -92,17 +91,6 @@ impl MatchTimer {
         let d = self.elapsed();
         d.as_secs_f32()
     }
-
-    fn set_elapsed(&mut self, d: Duration) {
-        self.accumulated = d;
-        if self.running {
-            self.last_start = Some(Instant::now());
-        }
-    }
-
-    fn is_running(&self) -> bool {
-        self.running
-    }
 }
 
 type Tx = UnboundedSender<Message>;
@@ -113,13 +101,13 @@ fn load_map_form_data(data: &str) -> GameMap {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() {
     let addr = env::args()
         .nth(1)
         .unwrap_or_else(|| "0.0.0.0:9001".to_string());
     println!("Starting server on {}", addr);
 
-    let listener = TcpListener::bind(&addr).await?;
+    let listener = TcpListener::bind(&addr).await.unwrap();
     let peers: PeerMap = Arc::new(Mutex::new(HashMap::new()));
     let map = load_map_form_data(&std::fs::read_to_string("default_map.json").unwrap());
     let game_state = Arc::new(Mutex::new(GameState::new(map)));
@@ -136,23 +124,15 @@ async fn main() -> anyhow::Result<()> {
         let peers = peers.clone();
         let game_state = game_state.clone();
         tokio::spawn(async move {
-            if let Err(e) = handle_connection(stream, peers, game_state).await {
-                println!("Connection error: {e:?}");
-            }
+            handle_connection(stream, peers, game_state).await;
         });
     }
-
-    Ok(())
 }
 
 #[derive(Clone)]
 struct Ball {
     pos: Vec2,
     vel: Vec2,
-    //ctf:
-    carrier: Option<String>,
-    possession_team: Option<Team>,
-    possession_time: f32,
 }
 
 struct GameState {
@@ -165,23 +145,19 @@ struct GameState {
     phase: MatchPhase,
     timer: MatchTimer,
     paused: bool,
-    team1_color: TeamColor,
-    team2_color: TeamColor,
+    team1_color: ColorDef,
+    team2_color: ColorDef,
+    player_with_active_action: Option<(String, f32)>,
 }
 
 impl GameState {
     fn new(map: GameMap) -> Self {
-        let ball = match map.mode {
-            GameMode::Football => {
-                let b = &map.football.as_ref().unwrap().ball;
+        let ball = match map.ball.as_ref() {
+            Some(b) =>
                 Some(Ball {
                     pos: Vec2::new(b.spawn_x, b.spawn_y),
                     vel: Vec2::ZERO,
-                    carrier: None,
-                    possession_team: None,
-                    possession_time: 0.0,
-                })
-            }
+                }),
             _ => None,
         };
         println!("HEJA {:?}", ball.is_some());
@@ -196,22 +172,28 @@ impl GameState {
             phase: MatchPhase::Lobby,
             timer: MatchTimer::new(),
             paused: false,
-            team1_color: TeamColor {
-                r: 200,
-                g: 0,
-                b: 0,
-                a: 255,
+            team1_color: ColorDef {
+                r: 200.0 / 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
             },
-            team2_color: TeamColor {
-                r: 0,
-                g: 0,
-                b: 200,
-                a: 255,
+            team2_color: ColorDef {
+                r: 0.0,
+                g: 0.0,
+                b: 200.0 / 255.0,
+                a: 1.0,
             },
+            player_with_active_action: None
         }
     }
 
-    pub fn add_new_player(&mut self, id: String) {
+
+    fn get_team_of_player(&self, player_id: &str) -> Option<Team> {
+        self.players.get(player_id).and_then(|x| if let PlayerStatus::Playing(x) = x.status { Some(x) } else { None } )
+    }
+
+    fn add_new_player(&mut self, id: String) {
         self.players.insert(
             id.clone(),
             Player {
@@ -299,18 +281,6 @@ impl GameState {
         for id in dead {
             self.snowballs.remove(&id);
         }
-        if self.map.mode == GameMode::Ctf {
-            if let Some(ball) = &mut self.ball {
-                if let Some(team) = ball.possession_team {
-                    ball.possession_time += DT;
-                    
-                    if ball.possession_time >= 10.0 {
-                        *self.scores.entry(team).or_insert(0) += 1;
-                        ball.possession_time = 0.0;
-                    }
-                }
-            }
-        }
     }
 
     fn snapshot(&self) -> (Vec<PlayerState>, Vec<SnowballState>) {
@@ -353,19 +323,6 @@ impl GameState {
         self.scores.insert(Team::Team1, 0);
         self.scores.insert(Team::Team2, 0);
         self.reset_positions();
-        if let GameMode::Football = self.map.mode {
-            if let Some(b) = &self.map.football {
-                let ball_info = &b.ball;
-                self.ball = Some(Ball {
-                    pos: Vec2::new(ball_info.spawn_x, ball_info.spawn_y),
-                    vel: Vec2::ZERO,
-                    carrier: None,
-                    possession_team: None,
-                    possession_time: Default::default(),
-                });
-            }
-        }
-
         self.phase = MatchPhase::Playing {
             score_limit,
             time_limit_secs,
@@ -418,14 +375,11 @@ impl GameState {
         }
 
         self.snowballs = HashMap::new();
-        
-        if let Some(x) = self.map.football.clone() {
+        self.player_with_active_action = None;
+        if let Some(x) = self.map.ball.clone() {
             if let Some(ball) = &mut self.ball {
-                ball.pos = Vec2::new(x.ball.spawn_x, x.ball.spawn_y);
+                ball.pos = Vec2::new(x.spawn_x, x.spawn_y);
                 ball.vel = Vec2::ZERO;
-                ball.carrier = None;
-                ball.possession_team = None;
-                ball.possession_time = 0.0;
             }
         }
     }
@@ -476,6 +430,209 @@ impl GameState {
     }
 }
 
+enum GameModeRules {
+    CaptureTheFlag,
+    HoldTheFlag,
+    Football,
+    Fight,
+    KingOfTheHill,
+    Race,
+    DefendTerritory
+}
+
+impl GameModeRules {
+    fn from_map_game_mode(mode: GameMode) -> Self {
+        match mode {
+            GameMode::Fight => Self::Fight,
+            GameMode::Football => Self::Football,
+            GameMode::Ctf => Self::CaptureTheFlag,
+            GameMode::Htf => Self::HoldTheFlag,
+            GameMode::KingOfTheHill => Self::KingOfTheHill,
+            GameMode::Race => Self::Race,
+            GameMode::DefendTerritory => Self::DefendTerritory
+        }
+    }
+
+    fn logic_step(&self, state: &mut GameState, delta: f32) {
+        match self {
+            GameModeRules::HoldTheFlag => {
+                if let Some((player, time)) = state.player_with_active_action.clone() {
+                    let mut new_time = time + delta;
+                    if new_time >= 10.0 {
+                        let team = state.get_team_of_player(&player).unwrap();
+                        *state.scores.entry(team).or_insert(0) += 1;
+                        new_time = 0.0;
+                    }
+                    state.player_with_active_action = Some((player.clone(), new_time));
+                }
+            },
+            GameModeRules::KingOfTheHill => {
+                if let Some((player, time)) = state.player_with_active_action.clone() {
+                    let new_time = time + delta;
+                    if new_time >= 10.0 {
+                        let team = state.get_team_of_player(&player).unwrap();
+                        *state.scores.entry(team).or_insert(0) += 1;
+                        state.player_with_active_action = None;
+                        // new_time = 0.0; //TODO remove?
+                        state.reset_positions();
+                    } else {
+                        state.player_with_active_action = Some((player, new_time));
+                    }
+                }
+            },
+            GameModeRules::DefendTerritory => {
+                if let Some((placeholder, time)) = state.player_with_active_action.clone() {
+                    let new_time = time + delta;
+                    state.player_with_active_action = Some((placeholder, new_time));
+                } else {
+                    state.player_with_active_action = Some((Default::default(), 0.0));
+                }
+            }
+            _ => (),
+        }
+    }
+    fn handle_collisions_response(&self, response: &SimulateCollisionResponse, state: &mut GameState) {
+        match self {
+            GameModeRules::CaptureTheFlag => {
+                if let Some((player_id, team)) = &response.ball_touched_by_player {
+                    if state.player_with_active_action.is_none() {
+                        state.player_with_active_action = Some((player_id.to_string(), 0.0));
+                    }
+                }
+
+                let ball_spawn = Vec2::new(state.map.ball.clone().unwrap().spawn_x, state.map.ball.clone().unwrap().spawn_y);
+                for player_id in &response.players_hit_by_snowball {
+                    if let Some(ball) = &mut state.ball {
+                        if state.player_with_active_action.is_some() {
+                            state.player_with_active_action = None;
+                            ball.vel = Vec2::ZERO;
+                            ball.pos = ball_spawn;
+                        }
+                    }
+                }
+
+                if let (Some(goal_team), Some(ball)) =
+                    (response.ball_in_goal_of_team, state.ball.as_mut())
+                {
+                    if let Some((player_id, _)) = &state.player_with_active_action {
+                        if let Some(carrier_team) = state.get_team_of_player(&player_id) {
+                            if carrier_team == goal_team {
+                                *state.scores.entry(carrier_team).or_insert(0) += 1;
+                                state.reset_positions();
+                            }
+                        }
+                    }
+                }
+
+                if let Some(ball) = &mut state.ball {
+                    for (player, value) in &state.player_with_active_action {
+                        if let Some(player) = state.players.get(player) {
+                            ball.pos = player.pos;
+                            ball.vel = Vec2::ZERO;
+                        }
+                    }
+                }
+            },
+            GameModeRules::HoldTheFlag => {
+                if let Some((player_id, _)) = &response.ball_touched_by_player {
+                    if state.player_with_active_action.is_none() {
+                        state.player_with_active_action = Some((player_id.to_string(), 0.0));
+                    }
+                }
+
+                let ball_spawn = Vec2::new(state.map.ball.clone().unwrap().spawn_x, state.map.ball.clone().unwrap().spawn_y);
+                for hit_player_id in response.players_hit_by_snowball.clone() {
+                    if let Some(ball) = &mut state.ball {
+                        if let Some((carrying_player_id, _)) = &state.player_with_active_action {
+                            if *carrying_player_id == hit_player_id {
+                                state.player_with_active_action = None;
+                                ball.vel = Vec2::ZERO;
+                                ball.pos = ball_spawn;
+                            }
+                        }
+                    }
+                }
+
+                let carrier_pos = {
+                    if let Some((carrier_id, _)) = &state.player_with_active_action {
+                        state.players.get(carrier_id).map(|p| p.pos)
+                    } else {
+                        None
+                    }
+                };
+
+                if let (Some(pos), Some(ball)) = (carrier_pos, state.ball.as_mut()) {
+                    ball.pos = pos;
+                    ball.vel = Vec2::ZERO;
+                }
+            },
+            GameModeRules::Football => {
+                if let Some(scoring_team) = &response.ball_in_goal_of_team {
+                    *state.scores.entry(*scoring_team).or_insert(0) += 1;
+
+                    state.reset_positions();
+                }
+            },
+            GameModeRules::Fight => {
+                for id in response.players_in_holes.iter() {
+                    if state
+                        .players
+                        .values_mut()
+                        .find(|x| x.id == *id)
+                        .is_some()
+                    {
+                        state.reset_positions();
+                    }
+                    if let Some(team) = state.get_team_of_player(id) {
+                        for (other_id, score) in state.scores.iter_mut() {
+                            if *other_id != team {
+                                *score += 1;
+                            }
+                        }
+                    }
+                }
+            },
+            GameModeRules::KingOfTheHill => {
+                if let Some((king_id, _)) = &state.player_with_active_action {
+                    let still_in_hole = response
+                        .players_in_holes
+                        .iter()
+                        .any(|id| id == king_id);
+
+                    if !still_in_hole {
+                        state.player_with_active_action = None;
+                    }
+                }
+
+                if state.player_with_active_action.is_none() {
+                    if let Some(player_id) = response.players_in_holes.first() {
+                        state.player_with_active_action = Some((player_id.clone(), 0.0));
+                    }
+                }
+            },
+            GameModeRules::Race => {
+                if let Some(player_id) = response.players_in_holes.first() {
+                    let team = state.get_team_of_player(player_id).unwrap();
+                    *state.scores.entry(team).or_insert(0) += 1;
+                    state.reset_positions();
+                }
+            },
+            GameModeRules::DefendTerritory => {
+                if let Some((_placeholder, time)) = &state.player_with_active_action {
+                    if *time >= 10.0 {
+                        if let Some(goal_team) = response.ball_in_goal_of_team {
+                            *state.scores.entry(goal_team).or_insert(0) += 1;
+
+                            state.player_with_active_action = None;
+                            state.reset_positions();
+                        }
+                    }
+                }
+            },
+        }
+    }
+}
+
 async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
     let tick = Duration::from_secs_f32(DT);
     let mut last = Instant::now();
@@ -494,8 +651,6 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                         ball: gs.ball.clone().map(|x| BallState {
                             pos: x.pos.into(),
                             vel: x.vel.into(),
-                            carrier: x.carrier,
-                            possession_time: x.possession_time,
                         }),
                         scores: gs.scores.clone(),
                         phase: gs.phase.clone(),
@@ -503,6 +658,7 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                         paused: gs.paused,
                         team1_color: gs.team1_color.clone(),
                         team2_color: gs.team2_color.clone(),
+                        player_with_active_action: gs.player_with_active_action.clone()
                     };
                     let txt = serde_json::to_string(&msg).unwrap();
 
@@ -519,62 +675,17 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
 
                 if let MatchPhase::Playing { .. } = phase {
                     gs.logic_step(DT);
+                    GameModeRules::from_map_game_mode(gs.map.mode.clone()).logic_step(&mut gs, DT);
                     simulate_movement(&mut gs, DT);
                     let response = simulate_collisions(&mut gs);
-
-                    for id in response.players_in_holes.into_iter() {
-                        if gs.map.mode == GameMode::Fight {
-                            if let Some(p) = gs
-                                .players
-                                .values_mut()
-                                .find(|x| matches!(x.status, PlayerStatus::Playing(x) if x == id))
-                            {
-                                gs.reset_positions();
-                            }
-                            for (other_id, score) in gs.scores.iter_mut() {
-                                if *other_id != id {
-                                    *score += 1;
-                                }
-                            }
-                        }
-                    }
+                    GameModeRules::from_map_game_mode(gs.map.mode.clone()).handle_collisions_response(&response, &mut gs);
 
                     for sid in response.snowballs_in_holes.into_iter() {
                         gs.snowballs.remove(&sid);
                     }
 
-                    if let Some(scoring_team) = response.goal_for_team {
-                        let team = if scoring_team == 1 {
-                            Team::Team1
-                        } else {
-                            Team::Team2
-                        }; // Convert raw number from collision detection
-                        *gs.scores.entry(team).or_insert(0) += 1;
-
-                        gs.reset_positions();
-                    }
-
                     if gs.check_end_conditions() {
                         gs.stop_match();
-                    }
-                }
-
-                if gs.map.mode == GameMode::Ctf {
-                    let carrier_pos = {
-                        if let Some(ball) = &gs.ball {
-                            if let Some(carrier_id) = &ball.carrier {
-                                gs.players.get(carrier_id).map(|p| p.pos)
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    };
-
-                    if let (Some(pos), Some(ball)) = (carrier_pos, gs.ball.as_mut()) {
-                        ball.pos = pos;
-                        ball.vel = Vec2::ZERO;
                     }
                 }
 
@@ -585,8 +696,6 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                     ball: gs.ball.clone().map(|x| BallState {
                         pos: x.pos.into(),
                         vel: x.vel.into(),
-                        carrier: x.carrier,
-                        possession_time: x.possession_time
                     }),
                     scores: gs.scores.clone(),
                     phase: gs.phase.clone(),
@@ -594,12 +703,12 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                     paused: gs.paused,
                     team1_color: gs.team1_color.clone(),
                     team2_color: gs.team2_color.clone(),
+                    player_with_active_action: gs.player_with_active_action.clone()
                 };
                 let txt = serde_json::to_string(&msg).unwrap();
 
                 let peers_guard = peers.lock().unwrap();
                 for (_id, tx) in peers_guard.iter() {
-                    // println!("sending: {txt}");
                     let _ = tx.send(Message::Text(txt.clone().into()));
                 }
             }

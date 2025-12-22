@@ -25,9 +25,9 @@ impl Renderer {
                     x,
                     y,
                     radius,
-                    factor,
+                    factor: _,
                     color,
-                    is_hole,
+                    is_hole: _,
                     mask: _,
                 } => {
                     let c = Color::from_rgba(
@@ -45,9 +45,9 @@ impl Renderer {
                     y,
                     w,
                     h,
-                    factor,
+                    factor: _,
                     color,
-                    is_hole,
+                    is_hole: _,
                     mask: _,
                 } => {
                     let c = Color::from_rgba(
@@ -91,21 +91,29 @@ impl Renderer {
             }
         }
 
-        // Draw goals (football mode)
-        if let Some(fb) = &state.map.football {
-            for goal in &fb.goals {
-                let c = if goal.team == 1 {
-                    Color::from_rgb(200, 50, 50)
-                } else {
-                    Color::from_rgb(50, 50, 200)
-                };
+        // Draw goals
+        for goal in &state.map.goals {
+            let c = player_color(state, goal.team);
 
-                mb.rectangle(
-                    DrawMode::stroke(2.0),
-                    graphics::Rect::new(goal.x, goal.y, goal.w, goal.h),
-                    c,
-                )?;
-            }
+            mb.rectangle(
+                DrawMode::stroke(2.0),
+                graphics::Rect::new(goal.x, goal.y, goal.w, goal.h),
+                c,
+            )?;
+            let border = c;
+            let fill = Color {
+                r: (border.r * 0.8).clamp(0.0, 1.0),
+                g: (border.g * 0.8).clamp(0.0, 1.0),
+                b: (border.b * 0.8).clamp(0.0, 1.0),
+                a: (border.a * 0.6).clamp(0.0, 1.0),
+            };
+            let stroke_width = 2.0;
+            let inset = stroke_width / 2.0;
+            mb.rectangle(
+                DrawMode::fill(),
+                graphics::Rect::new(goal.x + inset, goal.y + inset, goal.w - stroke_width, goal.h - stroke_width),
+                fill,
+            )?;
         }
 
         // Draw players
@@ -174,11 +182,9 @@ impl Renderer {
             mb.circle(DrawMode::fill(), Vec2::new(sb.pos.x, sb.pos.y), state.map.physics.snowball_radius, 0.5, c)?;
         }
 
-        if state.map.mode == GameMode::Football || state.map.mode == GameMode::Ctf {
-            if let Some(ball) = &state.ball {
-                let c = Color::from_rgb(250, 230, 120);
-                mb.circle(DrawMode::fill(), ball.pos, ball.radius, 0.5, c)?;
-            }
+        if let Some(ball) = &state.ball {
+            let c = Color::from_rgb(250, 230, 120);
+            mb.circle(DrawMode::fill(), ball.pos, ball.radius, 0.5, c)?;
         }
 
         let mesh = mb.build();
@@ -261,16 +267,16 @@ impl Renderer {
 fn player_color(state: &GameState, team: Team) -> Color {
     match team {
         Team::Team1 => Color {
-            r: state.team1_color.r as f32 / 255.0,
-            g: state.team1_color.g as f32 / 255.0,
-            b: state.team1_color.b as f32 / 255.0,
-            a: state.team1_color.a as f32 / 255.0,
+            r: state.team1_color.r,
+            g: state.team1_color.g,
+            b: state.team1_color.b,
+            a: state.team1_color.a,
         },
         Team::Team2 => Color {
-            r: state.team2_color.r as f32 / 255.0,
-            g: state.team2_color.g as f32 / 255.0,
-            b: state.team2_color.b as f32 / 255.0,
-            a: state.team2_color.a as f32 / 255.0,
+            r: state.team2_color.r,
+            g: state.team2_color.g,
+            b: state.team2_color.b,
+            a: state.team2_color.a,
         },
     }
 }

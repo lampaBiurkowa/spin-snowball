@@ -11,19 +11,14 @@ pub struct InputState {
 pub enum PlayerAction {
     RotateLeft,
     RotateRight,
-    Shoot(f32), // charge ratio [0.0 - 1.0]
+    Shoot
 }
 
 impl InputState {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn spin_timer(&self) -> f32 {
         self.spin_timer
     }
 
-    /// Called every frame by main.rs
     pub fn update(&mut self, dt: f32) {
         if self.rotating_left || self.rotating_right {
             self.spin_timer += dt;
@@ -68,19 +63,16 @@ impl InputState {
     }
 
     pub fn process_key_up(&mut self, key: KeyCode) -> Option<PlayerAction> {
-        let max_charge = 1.0;
         match key {
             KeyCode::ArrowLeft if self.rotating_left => {
                 self.rotating_left = false;
-                let charge_ratio = (self.spin_timer / max_charge).clamp(0.0, 1.0);
                 self.spin_timer = 0.0;
-                Some(PlayerAction::Shoot(charge_ratio))
+                Some(PlayerAction::Shoot)
             }
             KeyCode::ArrowRight if self.rotating_right => {
                 self.rotating_right = false;
-                let charge_ratio = (self.spin_timer / max_charge).clamp(0.0, 1.0);
                 self.spin_timer = 0.0;
-                Some(PlayerAction::Shoot(charge_ratio))
+                Some(PlayerAction::Shoot)
             }
             _ => None,
         }

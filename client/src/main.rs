@@ -100,9 +100,9 @@ impl MainState {
                         cmd: Command::SetNick { nick },
                     });
                 }
-                UIMessage::SetTeamColor { color, team } => {
+                UIMessage::SetColorDef { color, team } => {
                     self.network.send(ClientMessage::Command {
-                        cmd: Command::SetTeamColor { color, team },
+                        cmd: Command::SetColorDef { color, team },
                     });
                 }
                 UIMessage::SetPhysicsSettings { settings } => {
@@ -159,6 +159,7 @@ impl EventHandler for MainState {
                     paused,
                     team1_color,
                     team2_color,
+                    player_with_active_action
                 } => {
                     self.game.apply_world_state(
                         players,
@@ -170,6 +171,7 @@ impl EventHandler for MainState {
                         paused,
                         team1_color,
                         team2_color,
+                        player_with_active_action
                     );
                 }
                 ServerMessage::Pong { .. } => {}
@@ -219,7 +221,7 @@ impl EventHandler for MainState {
     fn key_up_event(&mut self, _ctx: &mut Context, input: KeyInput) -> Result<(), GameError> {
         if let PhysicalKey::Code(keycode) = input.event.physical_key {
             if let Some(action) = self.input.process_key_up(keycode) {
-                if let PlayerAction::Shoot(_) = action {
+                if let PlayerAction::Shoot = action {
                     self.network.send(ClientMessage::Input {
                         left: false,
                         right: false,

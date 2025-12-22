@@ -36,8 +36,8 @@ pub enum Command {
     SetNick {
         nick: String,
     },
-    SetTeamColor {
-        color: TeamColor,
+    SetColorDef {
+        color: ColorDef,
         team: Team,
     },
     SetPhysicsSettings { 
@@ -64,14 +64,6 @@ pub enum MatchPhase {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TeamColor {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum ServerMessage {
@@ -86,8 +78,9 @@ pub enum ServerMessage {
         phase: MatchPhase,
         time_elapsed: f32,
         paused: bool,
-        team1_color: TeamColor,
-        team2_color: TeamColor,
+        team1_color: ColorDef,
+        team2_color: ColorDef,
+        player_with_active_action: Option<(String, f32)>,
     },
     PhysicsSettings {
         settings: PhysicsSettings,
@@ -104,9 +97,6 @@ pub enum ServerMessage {
 pub struct BallState {
     pub pos: [f32; 2],
     pub vel: [f32; 2],
-    //ctf:
-    pub carrier: Option<String>,
-    pub possession_time: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -205,7 +195,8 @@ pub struct GameMap {
     pub mode: GameMode,
     pub team1: TeamDef,
     pub team2: TeamDef,
-    pub football: Option<FootballSettings>,
+    pub ball: Option<BallDef>,
+    pub goals: Vec<GoalDef>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -248,7 +239,11 @@ impl Default for PhysicsSettings {
 pub enum GameMode {
     Fight,
     Football,
-    Ctf
+    Ctf,
+    Htf,
+    KingOfTheHill,
+    Race,
+    DefendTerritory
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamDef {
@@ -269,12 +264,5 @@ pub struct GoalDef {
     pub y: f32,
     pub w: f32,
     pub h: f32,
-    pub team: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FootballSettings {
-    pub ball: BallDef,
-    pub goals: Vec<GoalDef>,
+    pub team: Team,
 }

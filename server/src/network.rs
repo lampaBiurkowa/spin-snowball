@@ -13,8 +13,8 @@ pub async fn handle_connection(
     stream: TcpStream,
     peers: PeerMap,
     game_state: Arc<Mutex<GameState>>,
-) -> anyhow::Result<()> {
-    let ws = accept_async(stream).await?;
+) {
+    let ws = accept_async(stream).await.unwrap();
     let (mut ws_sender, mut ws_receiver) = ws.split();
 
     let client_id = Uuid::new_v4().to_string();
@@ -32,13 +32,13 @@ pub async fn handle_connection(
         id: client_id.clone(),
     };
     ws_sender
-        .send(Message::Text(serde_json::to_string(&assign)?.into()))
-        .await?;
+        .send(Message::Text(serde_json::to_string(&assign).unwrap().into()))
+        .await.unwrap();
 
     let map = ServerMessage::Map { map };
     ws_sender
-        .send(Message::Text(serde_json::to_string(&map)?.into()))
-        .await?;
+        .send(Message::Text(serde_json::to_string(&map).unwrap().into()))
+        .await.unwrap();
 
     let forward_out = async {
         while let Some(msg) = rx.recv().await {
@@ -46,7 +46,6 @@ pub async fn handle_connection(
                 break;
             }
         }
-        Ok::<(), anyhow::Error>(())
     };
 
     let peers_clone = peers.clone();
@@ -133,7 +132,7 @@ pub async fn handle_connection(
                                     p.nick = nick;
                                 }
                             }
-                            Command::SetTeamColor { color, team } => {
+                            Command::SetColorDef { color, team } => {
                                 match team {
                                     Team::Team1 => gs.team1_color = color,
                                     Team::Team2 => gs.team2_color = color,
@@ -155,7 +154,6 @@ pub async fn handle_connection(
                 }
             }
         }
-        Ok::<(), anyhow::Error>(())
     };
 
     tokio::select! {
@@ -169,6 +167,4 @@ pub async fn handle_connection(
         let mut gs = game_state.lock().unwrap();
         gs.remove_player(&client_id);
     }
-
-    Ok(())
 }

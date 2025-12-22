@@ -3,13 +3,15 @@ use spin_snowball_shared::*;
 
 use crate::{Ball, GameState};
 
-pub struct SimulateCollisionResponse {
-    pub players_in_holes: Vec<Team>,
-    pub snowballs_in_holes: Vec<u64>,
-    pub goal_for_team: Option<u32>,
+pub(crate) struct SimulateCollisionResponse {
+    pub(crate) players_in_holes: Vec<String>,
+    pub(crate) snowballs_in_holes: Vec<u64>,
+    pub(crate) ball_in_goal_of_team: Option<Team>,
+    pub(crate) ball_touched_by_player: Option<(String, Team)>,
+    pub(crate) players_hit_by_snowball: Vec<String>
 }
 
-pub trait Body {
+trait Body {
     fn pos(&self) -> Vec2;
     fn pos_mut(&mut self) -> &mut Vec2;
     fn vel(&self) -> Vec2;
@@ -82,7 +84,7 @@ impl Body for Ball {
     }
 }
 
-pub fn simulate_movement(game_state: &mut GameState, dt: f32) {
+pub(crate) fn simulate_movement(game_state: &mut GameState, dt: f32) {
     for (_id, p) in game_state.players.iter_mut() {
         let max_charge_time = 1.0;
         let base_rot_speed = 180.0;     
@@ -132,10 +134,19 @@ pub fn simulate_movement(game_state: &mut GameState, dt: f32) {
 /// Top-level collision simulation.
 /// Uses helper functions below for clarity.
 pub fn simulate_collisions(game_state: &mut GameState) -> SimulateCollisionResponse {
+    let mut response = SimulateCollisionResponse {
+        players_in_holes: vec![],
+        snowballs_in_holes: vec![],
+        ball_in_goal_of_team: None,
+        ball_touched_by_player: None,
+        players_hit_by_snowball: vec![]
+    };
+
     simulate_player_player_collisions(game_state);
-    simulate_player_snowball_collisions(game_state);
-    simulate_ball_collisions(game_state);
-    simulate_map_collisions(game_state)
+    simulate_player_snowball_collisions(game_state, &mut response);
+    simulate_ball_collisions(game_state, &mut response);
+    simulate_map_collisions(game_state, &mut response);
+    response
 }
 
 /// Player vs Player collisions (circle-circle elastic).
@@ -161,7 +172,7 @@ fn simulate_player_player_collisions(game_state: &mut GameState) {
 }
 
 /// Player vs Snowball collisions (circle-circle with differing masses).
-fn simulate_player_snowball_collisions(game_state: &mut GameState) {
+fn simulate_player_snowball_collisions(game_state: &mut GameState, response: &mut SimulateCollisionResponse) {
     let player_ids: Vec<String> = game_state.players.keys().cloned().collect();
     let snow_ids: Vec<u64> = game_state.snowballs.keys().cloned().collect();
 
@@ -188,24 +199,14 @@ fn simulate_player_snowball_collisions(game_state: &mut GameState) {
                     game_state.map.physics.snowball_bounciness,
                     &game_state.map.physics,
                 ) {
-                    if game_state.map.mode == GameMode::Ctf {
-                        if let Some(ball) = &mut game_state.ball {
-                            if ball.carrier.as_deref() == Some(&p_mut.id) {
-                                ball.carrier = None;
-                                ball.possession_team = None;
-                                ball.possession_time = 0.0;
-                                ball.vel = Vec2::ZERO;
-                                ball.pos = Vec2::new(game_state.map.football.clone().unwrap().ball.spawn_x, game_state.map.football.clone().unwrap().ball.spawn_y);
-                            }
-                        }
-                    }
+                    response.players_hit_by_snowball.push(p_mut.id.clone());
                 }
             }
         }
     }
 }
 
-fn simulate_ball_collisions(game_state: &mut GameState) {
+fn simulate_ball_collisions(game_state: &mut GameState, response: &mut SimulateCollisionResponse) {
     let ball = match game_state.ball.as_mut() {
         Some(b) => b,
         None => return,
@@ -215,20 +216,14 @@ fn simulate_ball_collisions(game_state: &mut GameState) {
 
     // Ball vs players
     for p in game_state.players.values_mut() {
-        if let Some(id) = &ball.carrier {
+        if let Some((id, _)) = &game_state.player_with_active_action { //TODO remove
             if p.id == *id {
                 continue;
             }
         }
         if resolve_circle_circle(p, ball, physics.ball_bounciness, physics) {
-            if game_state.map.mode == GameMode::Ctf {
-                if ball.carrier.is_none() {
-                    ball.carrier = Some(p.id.clone());
-                    if let PlayerStatus::Playing(team) = p.status {
-                        ball.possession_team = Some(team);
-                        ball.possession_time = 0.0;
-                    }
-                }
+            if let PlayerStatus::Playing(team) = p.status {
+                response.ball_touched_by_player = Some((p.id.clone(), team))
             }
         }
     }
@@ -239,23 +234,15 @@ fn simulate_ball_collisions(game_state: &mut GameState) {
     }
 }
 
-fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionResponse {
-    let mut response = SimulateCollisionResponse {
-        players_in_holes: vec![],
-        snowballs_in_holes: vec![],
-        goal_for_team: None,
-    };
-
+fn simulate_map_collisions(game_state: &mut GameState, response: &mut SimulateCollisionResponse) {
     // Players
-    let mut player_respawns: Vec<String> = Vec::new();
     for (id, p) in game_state.players.iter_mut() {
         handle_map_for_body_player(
             p,
             id,
-            &mut player_respawns,
             &game_state.map.objects,
             &game_state.map.physics,
-            &mut response,
+            response,
         );
     }
 
@@ -375,143 +362,133 @@ fn simulate_map_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
         }
     }
 
-    // Ball
-    if game_state.map.mode == GameMode::Football {
-        if let Some(ball) = &mut game_state.ball {
-            for obj in &game_state.map.objects {
-                let mask = match obj {
-                    MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } | MapObject::Line { mask, .. }  => mask,
-                };
-                if !matches_ball(&mask) {
-                    continue;
-                }
-                match obj {
-                    MapObject::Circle {
-                        x,
-                        y,
-                        radius,
-                        factor,
-                        color: _,
-                        is_hole,
-                        mask: _,
-                    } => {
-                        if circle_intersects_circle(
-                            ball.pos.x,
-                            ball.pos.y,
-                            game_state.map.physics.ball_radius,
-                            *x,
-                            *y,
-                            *radius,
-                        ) {
-                            if *is_hole {
-                            } else {
-                                let delta = ball.pos - Vec2::new(*x, *y);
-                                let dist = delta.length().max(0.0001);
-                                let n = delta / dist;
-                                ball.pos = Vec2::new(*x, *y)
-                                    + n * (*radius + game_state.map.physics.ball_radius);
-                                ball.vel = ball.vel - 2.0 * ball.vel.dot(n) * n * (*factor);
-                            }
-                        }
-                    }
-                    MapObject::Rect {
-                        x,
-                        y,
-                        w,
-                        h,
-                        factor,
-                        color: _,
-                        is_hole,
-                        mask: _,
-                    } => {
-                        if circle_intersects_rect(
-                            ball.pos.x,
-                            ball.pos.y,
-                            game_state.map.physics.ball_radius,
-                            *x,
-                            *y,
-                            *w,
-                            *h,
-                        ) {
-                            if *is_hole {
-                            } else {
-                                let cx = ball.pos.x.clamp(*x, x + w);
-                                let cy = ball.pos.y.clamp(*y, y + h);
-                                let mut n = ball.pos - Vec2::new(cx, cy);
-                                if n.length_squared() < 1e-6 {
-                                    n = Vec2::new(
-                                        (ball.pos.x - (x + w / 2.0)).signum(),
-                                        (ball.pos.y - (y + h / 2.0)).signum(),
-                                    );
-                                }
-                                let n = n.normalize_or_zero();
-                                ball.pos += n * (game_state.map.physics.ball_radius * 0.5 + 0.5);
-                                ball.vel = ball.vel - 2.0 * ball.vel.dot(n) * n * factor;
-                            }
-                        }
-                    }
-                    MapObject::Line {
-                        ax,
-                        ay,
-                        bx,
-                        by,
-                        factor,
-                        color: _,
-                        is_hole,
-                        mask: _,
-                    } => {
-                        let a = Vec2::new(*ax, *ay);
-                        let b = Vec2::new(*bx, *by);
-
-                        if let Some(_delta) = circle_intersects_line(
-                            ball.pos,
-                            game_state.map.physics.ball_radius,
-                            a,
-                            b,
-                        ) {
-                            if !*is_hole {
-                                resolve_circle_line(
-                                    ball,
-                                    a,
-                                    b,
-                                    *factor,
-                                    &game_state.map.physics,
-                                );
-                            }
-                        }
-                    }
-                }
+    if let Some(ball) = &mut game_state.ball {
+        for obj in &game_state.map.objects {
+            let mask = match obj {
+                MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } | MapObject::Line { mask, .. }  => mask,
+            };
+            if !matches_ball(&mask) {
+                continue;
             }
-        }
-
-        if let Some(ball) = &mut game_state.ball {
-            if let Some(x) = &game_state.map.football {
-                for goal in x.goals.iter() {
+            match obj {
+                MapObject::Circle {
+                    x,
+                    y,
+                    radius,
+                    factor,
+                    color: _,
+                    is_hole,
+                    mask: _,
+                } => {
+                    if circle_intersects_circle(
+                        ball.pos.x,
+                        ball.pos.y,
+                        game_state.map.physics.ball_radius,
+                        *x,
+                        *y,
+                        *radius,
+                    ) {
+                        if *is_hole {
+                        } else {
+                            let delta = ball.pos - Vec2::new(*x, *y);
+                            let dist = delta.length().max(0.0001);
+                            let n = delta / dist;
+                            ball.pos = Vec2::new(*x, *y)
+                                + n * (*radius + game_state.map.physics.ball_radius);
+                            ball.vel = ball.vel - 2.0 * ball.vel.dot(n) * n * (*factor);
+                        }
+                    }
+                }
+                MapObject::Rect {
+                    x,
+                    y,
+                    w,
+                    h,
+                    factor,
+                    color: _,
+                    is_hole,
+                    mask: _,
+                } => {
                     if circle_intersects_rect(
                         ball.pos.x,
                         ball.pos.y,
                         game_state.map.physics.ball_radius,
-                        goal.x,
-                        goal.y,
-                        goal.w,
-                        goal.h,
+                        *x,
+                        *y,
+                        *w,
+                        *h,
                     ) {
-                        response.goal_for_team = Some(goal.team);
+                        if *is_hole {
+                        } else {
+                            let cx = ball.pos.x.clamp(*x, x + w);
+                            let cy = ball.pos.y.clamp(*y, y + h);
+                            let mut n = ball.pos - Vec2::new(cx, cy);
+                            if n.length_squared() < 1e-6 {
+                                n = Vec2::new(
+                                    (ball.pos.x - (x + w / 2.0)).signum(),
+                                    (ball.pos.y - (y + h / 2.0)).signum(),
+                                );
+                            }
+                            let n = n.normalize_or_zero();
+                            ball.pos += n * (game_state.map.physics.ball_radius * 0.5 + 0.5);
+                            ball.vel = ball.vel - 2.0 * ball.vel.dot(n) * n * factor;
+                        }
                     }
+                }
+                MapObject::Line {
+                    ax,
+                    ay,
+                    bx,
+                    by,
+                    factor,
+                    color: _,
+                    is_hole,
+                    mask: _,
+                } => {
+                    let a = Vec2::new(*ax, *ay);
+                    let b = Vec2::new(*bx, *by);
+
+                    if let Some(_delta) = circle_intersects_line(
+                        ball.pos,
+                        game_state.map.physics.ball_radius,
+                        a,
+                        b,
+                    ) {
+                        if !*is_hole {
+                            resolve_circle_line(
+                                ball,
+                                a,
+                                b,
+                                *factor,
+                                &game_state.map.physics,
+                            );
+                        }
+                    }
+                }
+            }
+            }
+
+        if let Some(ball) = &mut game_state.ball {
+            for goal in game_state.map.goals.iter() {
+                if circle_intersects_rect(
+                    ball.pos.x,
+                    ball.pos.y,
+                    game_state.map.physics.ball_radius,
+                    goal.x,
+                    goal.y,
+                    goal.w,
+                    goal.h,
+                ) {
+                    response.ball_in_goal_of_team = Some(goal.team);
                 }
             }
         }
     }
-
-    response
 }
 
-/// Handle map collisions for a player body.
-/// If player falls into hole, push its id onto `respawns` to be processed later.
 fn handle_map_for_body_player(
     player: &mut crate::Player,
     id: &str,
-    respawns: &mut Vec<String>,
     objects: &[MapObject],
     physics: &PhysicsSettings,
     response: &mut SimulateCollisionResponse,
@@ -521,11 +498,14 @@ fn handle_map_for_body_player(
         let mask = match obj {
             MapObject::Circle { mask, .. } | MapObject::Rect { mask, .. } | MapObject::Line { mask, .. }  => mask,
         };
+        let is_hole = match obj {
+            MapObject::Circle { is_hole, .. } | MapObject::Rect { is_hole, .. } | MapObject::Line { is_hole, .. }  => *is_hole,
+        };
         let team = match player.status {
             PlayerStatus::Spectator => continue,
             PlayerStatus::Playing(team) => team,
         };
-        if !matches_player(&mask, team) {
+        if !matches_player(&mask, team) && !is_hole {
             continue;
         }
         match obj {
@@ -540,7 +520,7 @@ fn handle_map_for_body_player(
             } => {
                 if circle_intersects_circle(pos.x, pos.y, physics.player_radius, *x, *y, *radius) {
                     if *is_hole {
-                        response.players_in_holes.push(team);
+                        response.players_in_holes.push(player.id.clone());
                     } else {
                         let delta = pos - Vec2::new(*x, *y);
                         let dist = delta.length().max(0.0001);
@@ -562,7 +542,7 @@ fn handle_map_for_body_player(
             } => {
                 if circle_intersects_rect(pos.x, pos.y, physics.player_radius, *x, *y, *w, *h) {
                     if *is_hole {
-                        response.players_in_holes.push(team);
+                        response.players_in_holes.push(player.id.clone());
                     } else {
                         let cx = pos.x.clamp(*x, x + w);
                         let cy = pos.y.clamp(*y, y + h);
@@ -620,7 +600,7 @@ fn handle_map_for_body_player(
                     circle_intersects_line(player.pos, physics.player_radius, a, b)
                 {
                     if *is_hole {
-                        response.players_in_holes.push(team);
+                        response.players_in_holes.push(player.id.clone());
                     } else {
                         resolve_circle_line(player, a, b, *factor, physics);
                     }
