@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use image::{GenericImageView, Pixel};
-use ndarray::{Array2};
+use ndarray::Array2;
 use serde::Serialize;
 
 // ------------------------------------------------------------
@@ -20,9 +20,7 @@ struct RGBA {
 }
 
 fn load_rgba(path: &Path) -> (Vec<RGBA>, u32, u32) {
-    let img = image::open(path)
-        .expect("Failed to open image")
-        .to_rgba8();
+    let img = image::open(path).expect("Failed to open image").to_rgba8();
 
     let (width, height) = img.dimensions();
 
@@ -53,19 +51,36 @@ fn alpha_mask(data: &[RGBA], width: u32, height: u32) -> Array2<bool> {
     mask
 }
 
-fn rgb_to_mask(r: u8, g: u8, b: u8) -> Vec<&'static str> {
-    let mut out = Vec::new();
-    if r == 255 {
-        out.push("snowball");
+fn digit_mask(c: u8) -> bool {
+    let d = c % 10;
+    d >= 1 && d <= 3
+}
+
+fn decode_rgb(r: u8, g: u8, b: u8) -> (bool, Vec<&'static str>) {
+    // Special hard-coded hole color
+    if r % 10 == 2 && g % 10 == 2 && b % 10 == 2 {
+        return (true, Vec::new());
     }
-    if g == 255 {
-        out.push("ball");
+
+    let mut mask = Vec::new();
+
+    if digit_mask(r) {
+        mask.push("snowball");
     }
-    if b == 255 {
-        out.push("player_team1");
-        out.push("player_team2");
+    if digit_mask(g) {
+        mask.push("ball");
     }
-    out
+    if digit_mask(b) {
+        mask.push("player_team1");
+        mask.push("player_team2");
+    }
+
+    (false, mask)
+}
+
+fn strip_mask_digit(c: u8) -> f32 {
+    let base = c - (c % 10);
+    base as f32 / 255.0
 }
 
 // ------------------------------------------------------------
@@ -77,13 +92,7 @@ fn label_components(mask: &Array2<bool>) -> (Array2<i32>, i32) {
     let mut labels = Array2::<i32>::zeros((h, w));
     let mut current_label = 0;
 
-    fn flood_fill(
-        mask: &Array2<bool>,
-        labels: &mut Array2<i32>,
-        x: isize,
-        y: isize,
-        label: i32,
-    ) {
+    fn flood_fill(mask: &Array2<bool>, labels: &mut Array2<i32>, x: isize, y: isize, label: i32) {
         let h = mask.dim().0 as isize;
         let w = mask.dim().1 as isize;
 
@@ -202,7 +211,7 @@ fn extract_rectangles(data: &[RGBA], width: u32, height: u32) -> Vec<RectObject>
         let idx = y0 * width as usize + x0;
         let px = data[idx];
 
-        let is_hole = px.r == 160 && px.g == 160 && px.b == 160;
+        let (is_hole, mask) = decode_rgb(px.r, px.g, px.b);
 
         objects.push(RectObject {
             rect: RectData {
@@ -213,18 +222,15 @@ fn extract_rectangles(data: &[RGBA], width: u32, height: u32) -> Vec<RectObject>
                 is_hole,
                 factor: 1.0,
                 color: Color {
-                    r: px.r as f32 / 255.0,
-                    g: px.g as f32 / 255.0,
-                    b: px.b as f32 / 255.0,
+                    r: strip_mask_digit(px.r),
+                    g: strip_mask_digit(px.g),
+                    b: strip_mask_digit(px.b),
                     a: 1.0,
                 },
                 mask: if is_hole {
                     vec![]
                 } else {
-                    rgb_to_mask(px.r, px.g, px.b)
-                        .into_iter()
-                        .map(String::from)
-                        .collect()
+                    mask.into_iter().map(String::from).collect()
                 },
             },
         });
@@ -264,7 +270,7 @@ fn extract_circles(data: &[RGBA], width: u32, height: u32) -> Vec<CircleObject> 
         let idx = y0 * width as usize + x0;
         let px = data[idx];
 
-        let is_hole = px.r == 160 && px.g == 160 && px.b == 160;
+        let (is_hole, mask) = decode_rgb(px.r, px.g, px.b);
 
         objects.push(CircleObject {
             circle: CircleData {
@@ -274,18 +280,15 @@ fn extract_circles(data: &[RGBA], width: u32, height: u32) -> Vec<CircleObject> 
                 is_hole,
                 factor: 1.0,
                 color: Color {
-                    r: px.r as f32 / 255.0,
-                    g: px.g as f32 / 255.0,
-                    b: px.b as f32 / 255.0,
+                    r: strip_mask_digit(px.r),
+                    g: strip_mask_digit(px.g),
+                    b: strip_mask_digit(px.b),
                     a: 1.0,
                 },
                 mask: if is_hole {
                     vec![]
                 } else {
-                    rgb_to_mask(px.r, px.g, px.b)
-                        .into_iter()
-                        .map(String::from)
-                        .collect()
+                    mask.into_iter().map(String::from).collect()
                 },
             },
         });
@@ -321,11 +324,7 @@ fn extract_goals(data: &[RGBA], width: u32, height: u32) -> Vec<Goal> {
         let idx = y0 * width as usize + x0;
         let px = data[idx];
 
-        let team = if px.r == 255 {
-            "Team1"
-        } else {
-            "Team2"
-        };
+        let team = if px.r == 255 { "Team1" } else { "Team2" };
 
         goals.push(Goal {
             x: x0 as i32,
@@ -397,7 +396,7 @@ fn main() {
         }),
         team1: serde_json::json!({ "spawn_x": w as f32 * 0.25, "spawn_y": h as f32 * 0.5 }),
         team2: serde_json::json!({ "spawn_x": w as f32 * 0.75, "spawn_y": h as f32 * 0.5 }),
-        ball:  serde_json::json!({ "spawn_x": w as f32 * 0.5,  "spawn_y": h as f32 * 0.5 }),
+        ball: serde_json::json!({ "spawn_x": w as f32 * 0.5,  "spawn_y": h as f32 * 0.5 }),
         goals: extract_goals(&goals_img, w, h),
         objects,
     };
