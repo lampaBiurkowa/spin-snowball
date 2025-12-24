@@ -1,0 +1,140 @@
+{
+  "name": "test",
+  "width": 1200,
+  "height": 800,
+  "physics": {
+    "ball_bounciness": 0.7,
+    "ball_mass": 1.0,
+    "ball_radius": 10.0,
+    "friction_per_frame": 0.99,
+    "player_bounciness": 0.6,
+    "player_mass": 1.0,
+    "player_radius": 25.0,
+    "snowball_bounciness": 0.9,
+    "snowball_lifetime_sec": 3.0,
+    "snowball_mass": 0.5,
+    "snowball_radius": 8.0
+  },
+  "team1": {
+    "spawn_x": 300.0,
+    "spawn_y": 400.0
+  },
+  "team2": {
+    "spawn_x": 900.0,
+    "spawn_y": 400.0
+  },
+  "ball": {
+    "spawn_x": 600.0,
+    "spawn_y": 400.0
+  },
+  "goals": [
+    {
+      "x": 1017,
+      "y": 227,
+      "w": 71,
+      "h": 160,
+      "team": "Team1"
+    },
+    {
+      "x": 1019,
+      "y": 439,
+      "w": 75,
+      "h": 148,
+      "team": "Team2"
+    }
+  ],
+  "objects": [
+    {
+      "rect": {
+        "color": {
+          "a": 1.0,
+          "b": 0.9960784316062927,
+          "g": 0.0,
+          "r": 0.0
+        },
+        "factor": 1.0,
+        "h": 70,
+        "is_hole": false,
+        "mask": [
+          "snowball"
+        ],
+        "w": 185,
+        "x": 72,
+        "y": 48
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 1.0,
+          "b": 0.9960784316062927,
+          "g": 0.0,
+          "r": 0.0
+        },
+        "factor": 1.0,
+        "h": 63,
+        "is_hole": false,
+        "mask": [
+          "ball"
+        ],
+        "w": 211,
+        "x": 318,
+        "y": 59
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 1.0,
+          "b": 0.9960784316062927,
+          "g": 0.0,
+          "r": 0.0
+        },
+        "factor": 1.0,
+        "h": 60,
+        "is_hole": false,
+        "mask": [
+          "player_team2"
+        ],
+        "w": 168,
+        "x": 867,
+        "y": 62
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 1.0,
+          "b": 0.9960784316062927,
+          "g": 0.0,
+          "r": 0.0
+        },
+        "factor": 1.0,
+        "h": 70,
+        "is_hole": false,
+        "mask": [
+          "player_team1"
+        ],
+        "w": 231,
+        "x": 587,
+        "y": 63
+      }
+    },
+    {
+      "circle": {
+        "color": {
+          "a": 1.0,
+          "b": 0.4941176474094391,
+          "g": 0.4941176474094391,
+          "r": 0.4941176474094391
+        },
+        "factor": 1.0,
+        "is_hole": true,
+        "mask": [],
+        "radius": 142.5,
+        "x": 701.5,
+        "y": 437.5
+      }
+    }
+  ]
+}

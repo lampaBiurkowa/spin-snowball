@@ -50,36 +50,32 @@ fn alpha_mask(data: &[RGBA], width: u32, height: u32) -> Array2<bool> {
     }
     mask
 }
-
-fn digit_mask(c: u8) -> bool {
-    let d = c % 10;
-    d >= 1 && d <= 3
+fn bit_mask(c: u8) -> bool {
+    (c & 1) == 1
 }
 
-fn decode_rgb(r: u8, g: u8, b: u8) -> (bool, Vec<&'static str>) {
-    // Special hard-coded hole color
-    if r % 10 == 2 && g % 10 == 2 && b % 10 == 2 {
-        return (true, Vec::new());
-    }
-
+fn decode_rgb(r: u8, g: u8, b: u8, a: u8) -> (bool, Vec<&'static str>) {
     let mut mask = Vec::new();
 
-    if digit_mask(r) {
+    if bit_mask(r) {
         mask.push("snowball");
     }
-    if digit_mask(g) {
+    if bit_mask(g) {
         mask.push("ball");
     }
-    if digit_mask(b) {
+    if bit_mask(b) {
         mask.push("player_team1");
+    }
+    if bit_mask(a) {
         mask.push("player_team2");
     }
+    let is_hole = r == 127 && b == 127 && g == 127;
 
-    (false, mask)
+    (is_hole, mask)
 }
 
-fn strip_mask_digit(c: u8) -> f32 {
-    let base = c - (c % 10);
+fn strip_mask_bit(c: u8) -> f32 {
+    let base = c & 0b1111_1110; // clear LSB
     base as f32 / 255.0
 }
 
@@ -92,27 +88,41 @@ fn label_components(mask: &Array2<bool>) -> (Array2<i32>, i32) {
     let mut labels = Array2::<i32>::zeros((h, w));
     let mut current_label = 0;
 
-    fn flood_fill(mask: &Array2<bool>, labels: &mut Array2<i32>, x: isize, y: isize, label: i32) {
+    fn flood_fill(
+        mask: &Array2<bool>,
+        labels: &mut Array2<i32>,
+        start_x: isize,
+        start_y: isize,
+        label: i32,
+    ) {
         let h = mask.dim().0 as isize;
         let w = mask.dim().1 as isize;
 
-        if x < 0 || y < 0 || x >= w || y >= h {
-            return;
-        }
-        if !mask[(y as usize, x as usize)] {
-            return;
-        }
-        if labels[(y as usize, x as usize)] != 0 {
-            return;
-        }
+        let mut stack = Vec::new();
+        stack.push((start_x, start_y));
 
-        labels[(y as usize, x as usize)] = label;
+        while let Some((x, y)) = stack.pop() {
+            if x < 0 || y < 0 || x >= w || y >= h {
+                continue;
+            }
+            let (ux, uy) = (x as usize, y as usize);
 
-        flood_fill(mask, labels, x + 1, y, label);
-        flood_fill(mask, labels, x - 1, y, label);
-        flood_fill(mask, labels, x, y + 1, label);
-        flood_fill(mask, labels, x, y - 1, label);
+            if !mask[(uy, ux)] {
+                continue;
+            }
+            if labels[(uy, ux)] != 0 {
+                continue;
+            }
+
+            labels[(uy, ux)] = label;
+
+            stack.push((x + 1, y));
+            stack.push((x - 1, y));
+            stack.push((x, y + 1));
+            stack.push((x, y - 1));
+        }
     }
+
 
     for y in 0..h {
         for x in 0..w {
@@ -211,7 +221,7 @@ fn extract_rectangles(data: &[RGBA], width: u32, height: u32) -> Vec<RectObject>
         let idx = y0 * width as usize + x0;
         let px = data[idx];
 
-        let (is_hole, mask) = decode_rgb(px.r, px.g, px.b);
+        let (is_hole, mask) = decode_rgb(px.r, px.g, px.b, px.a);
 
         objects.push(RectObject {
             rect: RectData {
@@ -222,9 +232,9 @@ fn extract_rectangles(data: &[RGBA], width: u32, height: u32) -> Vec<RectObject>
                 is_hole,
                 factor: 1.0,
                 color: Color {
-                    r: strip_mask_digit(px.r),
-                    g: strip_mask_digit(px.g),
-                    b: strip_mask_digit(px.b),
+                    r: strip_mask_bit(px.r),
+                    g: strip_mask_bit(px.g),
+                    b: strip_mask_bit(px.b),
                     a: 1.0,
                 },
                 mask: if is_hole {
@@ -267,10 +277,12 @@ fn extract_circles(data: &[RGBA], width: u32, height: u32) -> Vec<CircleObject> 
         let cy = (y0 + y1) as f32 / 2.0;
         let radius = ((x1 - x0).max(y1 - y0)) as f32 / 2.0;
 
-        let idx = y0 * width as usize + x0;
+        let sample_x = xs[0];
+        let sample_y = ys[0];
+        let idx = sample_y * width as usize + sample_x;
         let px = data[idx];
 
-        let (is_hole, mask) = decode_rgb(px.r, px.g, px.b);
+        let (is_hole, mask) = decode_rgb(px.r, px.g, px.b, px.a);
 
         objects.push(CircleObject {
             circle: CircleData {
@@ -280,9 +292,9 @@ fn extract_circles(data: &[RGBA], width: u32, height: u32) -> Vec<CircleObject> 
                 is_hole,
                 factor: 1.0,
                 color: Color {
-                    r: strip_mask_digit(px.r),
-                    g: strip_mask_digit(px.g),
-                    b: strip_mask_digit(px.b),
+                    r: strip_mask_bit(px.r),
+                    g: strip_mask_bit(px.g),
+                    b: strip_mask_bit(px.b),
                     a: 1.0,
                 },
                 mask: if is_hole {
