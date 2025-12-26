@@ -60,6 +60,7 @@ jobs:
           mkdir artifacts
           cp target/${{ matrix.target }}/release/${{ matrix.client_bin }} artifacts/
           cp target/${{ matrix.target }}/release/${{ matrix.mapeditor_bin }} artifacts/
+          cp target/${{ matrix.target }}/release/${{ matrix.mapreverser_bin }} artifacts/
 
       - name: Upload client binary
         uses: actions/upload-artifact@v4
