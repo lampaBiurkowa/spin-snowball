@@ -91,7 +91,7 @@ pub(crate) fn simulate_movement(game_state: &mut GameState, dt: f32) {
         let max_rot_speed = 440.0;
         let t = (p.spin_timer / max_charge_time).min(1.0);
         let rot_speed = base_rot_speed + (max_rot_speed - base_rot_speed) * t;
-        // rotation
+
         if p.rotating_left {
             p.rot_deg -= rot_speed  * dt;
             p.spin_timer += dt;
@@ -105,21 +105,14 @@ pub(crate) fn simulate_movement(game_state: &mut GameState, dt: f32) {
             p.rot_deg = p.rot_deg % 360.0;
         }
 
-        // integrate
         p.pos += p.vel * dt;
-
-        // friction
         p.vel *= game_state.map.physics.friction_per_frame.powf(dt * 60.0);
-
-        // clamp to world
         p.pos.x = p.pos.x.clamp(0.0, game_state.map.width);
         p.pos.y = p.pos.y.clamp(0.0, game_state.map.height);
     }
 
-    // integrate snowballs
     for (_id, s) in game_state.snowballs.iter_mut() {
         s.pos += s.vel * dt;
-        // optional: apply friction / air drag if desired (kept constant motion here)
     }
 
     if let Some(ball) = &mut game_state.ball {
@@ -131,8 +124,6 @@ pub(crate) fn simulate_movement(game_state: &mut GameState, dt: f32) {
     }
 }
 
-/// Top-level collision simulation.
-/// Uses helper functions below for clarity.
 pub fn simulate_collisions(game_state: &mut GameState) -> SimulateCollisionResponse {
     let mut response = SimulateCollisionResponse {
         players_in_holes: vec![],
@@ -149,7 +140,6 @@ pub fn simulate_collisions(game_state: &mut GameState) -> SimulateCollisionRespo
     response
 }
 
-/// Player vs Player collisions (circle-circle elastic).
 fn simulate_player_player_collisions(game_state: &mut GameState) {
     // Collect ids to avoid borrowing issues when iterating map
     let player_ids: Vec<String> = game_state.players.keys().cloned().collect();
@@ -171,7 +161,6 @@ fn simulate_player_player_collisions(game_state: &mut GameState) {
     }
 }
 
-/// Player vs Snowball collisions (circle-circle with differing masses).
 fn simulate_player_snowball_collisions(game_state: &mut GameState, response: &mut SimulateCollisionResponse) {
     let player_ids: Vec<String> = game_state.players.keys().cloned().collect();
     let snow_ids: Vec<u64> = game_state.snowballs.keys().cloned().collect();
@@ -214,7 +203,6 @@ fn simulate_ball_collisions(game_state: &mut GameState, response: &mut SimulateC
 
     let physics = &game_state.map.physics;
 
-    // Ball vs players
     for p in game_state.players.values_mut() {
         if let Some((id, _)) = &game_state.player_with_active_action { //TODO remove
             if p.id == *id {
@@ -228,14 +216,12 @@ fn simulate_ball_collisions(game_state: &mut GameState, response: &mut SimulateC
         }
     }
 
-    // Ball vs snowballs
     for s in game_state.snowballs.values_mut() {
         resolve_circle_circle(s, ball, physics.ball_bounciness, physics);
     }
 }
 
 fn simulate_map_collisions(game_state: &mut GameState, response: &mut SimulateCollisionResponse) {
-    // Players
     for (id, p) in game_state.players.iter_mut() {
         handle_map_for_body_player(
             p,
@@ -246,7 +232,6 @@ fn simulate_map_collisions(game_state: &mut GameState, response: &mut SimulateCo
         );
     }
 
-    // Snowballs
     let snow_ids: Vec<u64> = game_state.snowballs.keys().cloned().collect();
     for sid in snow_ids.iter() {
         // we need the original position for collision checks to avoid mutable borrow issues
@@ -610,8 +595,6 @@ fn handle_map_for_body_player(
     }
 }
 
-/// Resolve circle-circle collision between two bodies with their own masses & radii.
-/// This is generic and works for Player <-> Player or Player <-> Snowball (if you pass different bodies).
 fn resolve_circle_circle<A: Body, B: Body>(
     a: &mut A,
     b: &mut B,
@@ -661,7 +644,6 @@ fn resolve_circle_circle_custom_masses(
     resolve_circle_circle(a, b, bounciness, physics)
 }
 
-/// Basic circle-rectangle intersection test (returns true if circle intersects rect).
 #[inline]
 fn circle_intersects_rect(px: f32, py: f32, r_entity: f32, x: f32, y: f32, w: f32, h: f32) -> bool {
     let closest_x = px.clamp(x, x + w);
@@ -669,7 +651,6 @@ fn circle_intersects_rect(px: f32, py: f32, r_entity: f32, x: f32, y: f32, w: f3
     dist2(px, py, closest_x, closest_y) < r_entity * r_entity
 }
 
-/// Basic circle-circle intersection test.
 #[inline]
 fn circle_intersects_circle(px: f32, py: f32, r_entity: f32, x: f32, y: f32, r_obj: f32) -> bool {
     dist2(px, py, x, y) < (r_entity + r_obj) * (r_entity + r_obj)

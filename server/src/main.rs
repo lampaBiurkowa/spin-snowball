@@ -361,25 +361,29 @@ impl GameState {
         }
     }
 
+    fn reset_player_position(p: &mut Player, team1: &TeamDef, team2: &TeamDef) {
+        match p.status {
+            PlayerStatus::Playing(Team::Team1) => {
+                let x = team1.spawn_x;
+                let y = team1.spawn_y;
+                p.pos = Vec2::new(x, y);
+                p.vel = Vec2::ZERO;
+                p.rot_deg = -90.0;
+            }
+            PlayerStatus::Playing(Team::Team2) => {
+                let x = team2.spawn_x;
+                let y = team2.spawn_y;
+                p.pos = Vec2::new(x, y);
+                p.vel = Vec2::ZERO;
+                p.rot_deg = -90.0;
+            }
+            PlayerStatus::Spectator => (),
+        }
+    }
+
     pub fn reset_positions(&mut self) {
         for p in self.players.values_mut() {
-            match p.status {
-                PlayerStatus::Playing(Team::Team1) => {
-                    let x = self.map.team1.spawn_x;
-                    let y = self.map.team1.spawn_y;
-                    p.pos = Vec2::new(x, y);
-                    p.vel = Vec2::ZERO;
-                    p.rot_deg = -90.0;
-                }
-                PlayerStatus::Playing(Team::Team2) => {
-                    let x = self.map.team2.spawn_x;
-                    let y = self.map.team2.spawn_y;
-                    p.pos = Vec2::new(x, y);
-                    p.vel = Vec2::ZERO;
-                    p.rot_deg = -90.0;
-                }
-                PlayerStatus::Spectator => (),
-            }
+            Self::reset_player_position(p, &self.map.team1, &self.map.team2);
         }
 
         self.snowballs = HashMap::new();
@@ -714,6 +718,15 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                     }
                 }
 
+                let map = gs.map.clone();
+                for p in gs.players.values_mut() {
+                    sanity_check_player(p, &map);
+                }
+
+                if let Some(ball) = &mut gs.ball {
+                    sanity_check_ball(ball, &map);
+                }
+
                 let (players, snowballs) = gs.snapshot();
                 let msg = ServerMessage::WorldState {
                     players,
@@ -744,4 +757,64 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
             tokio::time::sleep(tick - elapsed).await;
         }
     }
+}
+
+
+#[inline]
+fn vec2_invalid(v: Vec2) -> bool {
+    !v.x.is_finite() || !v.y.is_finite()
+}
+
+#[inline]
+fn out_of_bounds(pos: Vec2, map: &GameMap) -> bool {
+    pos.x < 0.0 ||
+    pos.y < 0.0 ||
+    pos.x > map.width ||
+    pos.y > map.height
+}
+
+fn sanity_check_player(player: &mut Player, map: &GameMap) -> bool {
+    if vec2_invalid(player.pos)
+        || vec2_invalid(player.vel)
+        || player.vel.length() > 5000.0
+        || out_of_bounds(player.pos, map)
+    {
+        player.vel = Vec2::ZERO;
+        player.spin_timer = 0.0;
+        player.rotating_left = false;
+        player.rotating_right = false;
+
+        match player.status {
+            PlayerStatus::Playing(Team::Team1) => {
+                player.pos = Vec2::new(map.team1.spawn_x, map.team1.spawn_y);
+            }
+            PlayerStatus::Playing(Team::Team2) => {
+                player.pos = Vec2::new(map.team2.spawn_x, map.team2.spawn_y);
+            }
+            PlayerStatus::Spectator => {}
+        }
+
+        return true;
+    }
+
+    false
+}
+
+fn sanity_check_ball(ball: &mut Ball, map: &GameMap) -> bool {
+    if vec2_invalid(ball.pos)
+        || vec2_invalid(ball.vel)
+        || ball.vel.length() > 5000.0
+        || out_of_bounds(ball.pos, map)
+    {
+        if let Some(ball_def) = &map.ball {
+            ball.pos = Vec2::new(ball_def.spawn_x, ball_def.spawn_y);
+        } else {
+            ball.pos = Vec2::ZERO;
+        }
+
+        ball.vel = Vec2::ZERO;
+        return true;
+    }
+
+    false
 }
