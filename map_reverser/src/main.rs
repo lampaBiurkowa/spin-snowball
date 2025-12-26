@@ -14,13 +14,17 @@ struct MapData {
 }
 
 fn color_to_rgba(c: &ColorDef, mask: &[CollisionMaskTag], is_hole: bool) -> Rgba<u8> {
-    let mut r = (c.r * 255.0) as u8;
-    let mut g = (c.g * 255.0) as u8;
-    let mut b = (c.b * 255.0) as u8;
+    let mut r = (c.r.clamp(0.0, 1.0) * 255.0) as u8;
+    let mut g = (c.g.clamp(0.0, 1.0) * 255.0) as u8;
+    let mut b = (c.b.clamp(0.0, 1.0) * 255.0) as u8;
     let mut a = 255u8;
 
-    // encode collision mask in LSB
     if !is_hole {
+        r &= !1;
+        g &= !1;
+        b &= !1;
+        a &= !1;
+
         for tag in mask {
             match tag {
                 CollisionMaskTag::Snowball => r |= 1,
@@ -33,6 +37,7 @@ fn color_to_rgba(c: &ColorDef, mask: &[CollisionMaskTag], is_hole: bool) -> Rgba
 
     Rgba([r, g, b, a])
 }
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();

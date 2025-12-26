@@ -284,7 +284,7 @@ impl Renderer {
             );
         }
 
-        if state.game_mode == GameMode::DefendTerritory {
+        if state.game_mode == GameMode::HotPotato {
             if let Some(action_target_time) = state.action_target_time {
                 let text = if state.action_time < action_target_time {
                     format!("TERRITORY: {:.1}s", state.action_time)

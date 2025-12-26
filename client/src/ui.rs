@@ -259,7 +259,7 @@ impl UiState {
                             GameMode::Htf,
                             GameMode::KingOfTheHill,
                             GameMode::Race,
-                            GameMode::DefendTerritory,
+                            GameMode::HotPotato,
                             GameMode::Shooter,
                         ] {
                             if ui
@@ -552,7 +552,7 @@ fn game_mode_label(mode: GameMode) -> &'static str {
         GameMode::Htf => "Hold The Flag",
         GameMode::KingOfTheHill => "King of the Hill",
         GameMode::Race => "Race",
-        GameMode::DefendTerritory => "Defend Territory",
+        GameMode::HotPotato => "Hot Potato",
         GameMode::Shooter => "Shooter",
     }
 }
@@ -560,6 +560,6 @@ fn game_mode_label(mode: GameMode) -> &'static str {
 fn mode_uses_action_timer(mode: GameMode) -> bool {
     matches!(
         mode,
-        GameMode::Htf | GameMode::KingOfTheHill | GameMode::DefendTerritory
+        GameMode::Htf | GameMode::KingOfTheHill | GameMode::HotPotato
     )
 }

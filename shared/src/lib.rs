@@ -248,7 +248,7 @@ pub enum GameMode {
     Htf,
     KingOfTheHill,
     Race,
-    DefendTerritory,
+    HotPotato,
     Shooter
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -449,7 +449,7 @@ enum GameModeRules {
     Fight,
     KingOfTheHill,
     Race,
-    DefendTerritory,
+    HotPotato,
     Shooter,
 }
 
@@ -462,7 +462,7 @@ impl GameModeRules {
             GameMode::Htf => Self::HoldTheFlag,
             GameMode::KingOfTheHill => Self::KingOfTheHill,
             GameMode::Race => Self::Race,
-            GameMode::DefendTerritory => Self::DefendTerritory,
+            GameMode::HotPotato => Self::HotPotato,
             GameMode::Shooter => Self::Shooter,
         }
     }
@@ -493,7 +493,7 @@ impl GameModeRules {
                     }
                 }
             }
-            GameModeRules::DefendTerritory => {
+            GameModeRules::HotPotato => {
                 if let Some((placeholder, time)) = state.player_with_active_action.clone() {
                     let new_time = time + delta;
                     state.player_with_active_action = Some((placeholder, new_time));
@@ -632,7 +632,7 @@ impl GameModeRules {
                     state.reset_positions();
                 }
             }
-            GameModeRules::DefendTerritory => {
+            GameModeRules::HotPotato => {
                 if let Some((_placeholder, time)) = &state.player_with_active_action {
                     if *time >= state.action_target_time.unwrap_or(10.0) {
                         if let Some(goal_team) = response.ball_in_goal_of_team {
