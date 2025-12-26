@@ -37,16 +37,24 @@ fn load_rgba(path: &Path) -> (Vec<RGBA>, u32, u32) {
     (data, width, height)
 }
 
-fn alpha_mask(data: &[RGBA], width: u32, height: u32) -> Array2<bool> {
-    let mut mask = Array2::<bool>::default((height as usize, width as usize));
-    for y in 0..height {
-        for x in 0..width {
-            let idx = (y * width + x) as usize;
-            mask[(y as usize, x as usize)] = data[idx].a > 0;
+fn color_mask(data: &[RGBA], width: u32, height: u32) -> Array2<u32> {
+    let mut mask = Array2::<u32>::zeros((height as usize, width as usize));
+    for y in 0..height as usize {
+        for x in 0..width as usize {
+            let idx = y * width as usize + x;
+            let px = &data[idx];
+            if px.a > 0 {
+                mask[(y, x)] =
+                    (px.r as u32) << 24 |
+                    (px.g as u32) << 16 |
+                    (px.b as u32) << 8  |
+                    (px.a as u32);
+            }
         }
     }
     mask
 }
+
 fn bit_mask(c: u8) -> bool {
     (c & 1) == 1
 }
@@ -76,51 +84,38 @@ fn strip_mask_bit(c: u8) -> f32 {
     base as f32 / 255.0
 }
 
-fn label_components(mask: &Array2<bool>) -> (Array2<i32>, i32) {
+fn label_components(mask: &Array2<u32>) -> (Array2<i32>, i32) {
+    use std::collections::VecDeque;
+
     let (h, w) = mask.dim();
     let mut labels = Array2::<i32>::zeros((h, w));
     let mut current_label = 0;
 
-    fn flood_fill(
-        mask: &Array2<bool>,
-        labels: &mut Array2<i32>,
-        start_x: isize,
-        start_y: isize,
-        label: i32,
-    ) {
-        let h = mask.dim().0 as isize;
-        let w = mask.dim().1 as isize;
-
-        let mut stack = Vec::new();
-        stack.push((start_x, start_y));
-
-        while let Some((x, y)) = stack.pop() {
-            if x < 0 || y < 0 || x >= w || y >= h {
-                continue;
-            }
-            let (ux, uy) = (x as usize, y as usize);
-
-            if !mask[(uy, ux)] {
-                continue;
-            }
-            if labels[(uy, ux)] != 0 {
-                continue;
-            }
-
-            labels[(uy, ux)] = label;
-
-            stack.push((x + 1, y));
-            stack.push((x - 1, y));
-            stack.push((x, y + 1));
-            stack.push((x, y - 1));
-        }
-    }
-
     for y in 0..h {
         for x in 0..w {
-            if mask[(y, x)] && labels[(y, x)] == 0 {
-                current_label += 1;
-                flood_fill(mask, &mut labels, x as isize, y as isize, current_label);
+            let color = mask[(y, x)];
+            if color == 0 || labels[(y, x)] != 0 {
+                continue;
+            }
+
+            current_label += 1;
+            let mut queue = VecDeque::new();
+            queue.push_back((x, y));
+
+            while let Some((cx, cy)) = queue.pop_front() {
+                if cx >= w || cy >= h {
+                    continue;
+                }
+                if labels[(cy, cx)] != 0 || mask[(cy, cx)] != color {
+                    continue;
+                }
+
+                labels[(cy, cx)] = current_label;
+
+                if cx > 0 { queue.push_back((cx - 1, cy)); }
+                if cx + 1 < w { queue.push_back((cx + 1, cy)); }
+                if cy > 0 { queue.push_back((cx, cy - 1)); }
+                if cy + 1 < h { queue.push_back((cx, cy + 1)); }
             }
         }
     }
@@ -129,7 +124,7 @@ fn label_components(mask: &Array2<bool>) -> (Array2<i32>, i32) {
 }
 
 fn extract_rectangles(data: &[RGBA], width: u32, height: u32) -> Vec<MapObject> {
-    let mask = alpha_mask(data, width, height);
+    let mask = color_mask(data, width, height);
     let (labels, count) = label_components(&mask);
 
     let mut objects = Vec::new();
@@ -183,7 +178,7 @@ fn extract_rectangles(data: &[RGBA], width: u32, height: u32) -> Vec<MapObject> 
 }
 
 fn extract_circles(data: &[RGBA], width: u32, height: u32) -> Vec<MapObject> {
-    let mask = alpha_mask(data, width, height);
+    let mask = color_mask(data, width, height);
     let (labels, count) = label_components(&mask);
 
     let mut objects = Vec::new();
@@ -242,7 +237,7 @@ fn extract_circles(data: &[RGBA], width: u32, height: u32) -> Vec<MapObject> {
 }
 
 fn extract_goals(data: &[RGBA], width: u32, height: u32) -> Vec<GoalDef> {
-    let mask = alpha_mask(data, width, height);
+    let mask = color_mask(data, width, height);
     let (labels, count) = label_components(&mask);
 
     let mut goals = Vec::new();
