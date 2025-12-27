@@ -24,6 +24,7 @@
         "spawn_x": 950,
         "spawn_y": 400
     },
+    "goals": [],
     "objects": [
         {
             "line": {

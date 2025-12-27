@@ -53,6 +53,7 @@ pub struct UiState {
     show_physics: bool,
     physics_edit: Option<PhysicsSettings>,
     action_target_time: f32,
+    show_top_hud: bool
 }
 
 impl UiState {
@@ -71,6 +72,7 @@ impl UiState {
             show_physics: false,
             physics_edit: None,
             action_target_time: 10.0,
+            show_top_hud: true
         }
     }
 
@@ -108,12 +110,17 @@ impl UiState {
                 ui.separator();
                 self.draw_match_controls(ui, state);
                 ui.separator();
-                if ui.button("⚙ Physics Settings").clicked() {
-                    self.show_physics = !self.show_physics;
-                    if self.show_physics {
-                        self.physics_edit = Some(state.map.physics.clone());
+                ui.horizontal(|ui| {
+                    if ui.button("⚙ Physics Settings").clicked() {
+                        self.show_physics = !self.show_physics;
+                        if self.show_physics {
+                            self.physics_edit = Some(state.map.physics.clone());
+                        }
                     }
-                }
+                    if ui.button("Toggle Top HUD").clicked() {
+                        self.show_top_hud = !self.show_top_hud;
+                    }
+                });
             });
 
         if self.show_physics {
@@ -126,6 +133,10 @@ impl UiState {
     }
 
     fn draw_top_hud(&self, egui_ctx: &egui::Context, state: &GameState) {
+        if !self.show_top_hud {
+            return;
+        }
+
         egui::TopBottomPanel::top("top_hud")
             .resizable(false)
             .show(egui_ctx, |ui| {
