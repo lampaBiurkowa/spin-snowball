@@ -268,9 +268,8 @@ impl GameState {
                     let snowball_mass = self.map.physics.snowball_mass;
                     let player_mass = self.map.physics.player_mass;
 
-                    let recoil_tuning = 1.2; // <-- single knob for feel
                     let recoil_velocity =
-                        (snowball_mass * snowball_speed / player_mass) * recoil_tuning;
+                        (snowball_mass * snowball_speed / player_mass) * self.map.physics.recoil_power;
 
                     p.vel -= dir * recoil_velocity;
 

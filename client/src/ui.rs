@@ -524,6 +524,14 @@ fn draw_physics_settings(
         0.0001,
         0.0..=1.0,
     );
+
+    drag(
+        ui,
+        "Recoil power",
+        &mut physics.recoil_power,
+        0.1,
+        0.0..=2.0,
+    );
     if ui.button("Set").clicked() {
         Some(physics.clone())
     } else {

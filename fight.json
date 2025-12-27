@@ -14,7 +14,8 @@
         "player_bounciness": 0.6,
         "snowball_bounciness": 0.9,
         "snowball_lifetime_sec": 3.0,
-        "friction_per_frame": 0.985
+        "friction_per_frame": 0.985,
+        "recoil_power": 1.2
     },
     "team1": {
         "spawn_x": 250,
