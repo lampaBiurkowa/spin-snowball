@@ -235,16 +235,22 @@ impl GameState {
                 // Edge-detect the shoot button on server side:
                 // only spawn a snowball when shoot transitions from false -> true
                 if shoot && !p.last_shoot_pressed {
-                    // spawn based on current rotation & spin_timer
+                    // --- Charge ---
                     let max_charge = 1.0;
                     let charge = p.spin_timer.min(max_charge);
-                    let charge_t = (charge / max_charge).clamp(0.1, 1.0);
-                    let base_speed = 300.0;
-                    let snowball_speed = base_speed + 700.0 * charge_t;
+                    let charge_t = (charge / max_charge).clamp(0.0, 1.0);
 
+                    // --- Snowball speed ---
+                    let base_speed = 300.0;
+                    let max_extra_speed = 700.0;
+                    let snowball_speed = base_speed + max_extra_speed * charge_t;
+
+                    // --- Direction ---
                     let r = p.rot_deg.to_radians();
                     let dir = Vec2::new(r.cos(), r.sin());
-                    let spawn_pos = p.pos + dir * (18.0 + 8.0);
+
+                    // --- Spawn ---
+                    let spawn_pos = p.pos + dir * 26.0;
 
                     let id = self.next_snowball_id;
                     self.next_snowball_id += 1;
@@ -257,20 +263,22 @@ impl GameState {
                             life: self.map.physics.snowball_lifetime_sec,
                         },
                     );
+
+                    // --- Recoil (momentum-based) ---
                     let snowball_mass = self.map.physics.snowball_mass;
                     let player_mass = self.map.physics.player_mass;
-                    let mass_ratio = (snowball_mass / player_mass).clamp(0.2, 2.0);
-                    let base_recoil = 0.6;
-                    let recoil_strength = base_recoil + mass_ratio * max_charge * charge_t;
-                    p.vel -= dir * (snowball_speed * recoil_strength / 3.0);
 
+                    let recoil_tuning = 1.2; // <-- single knob for feel
+                    let recoil_velocity =
+                        (snowball_mass * snowball_speed / player_mass) * recoil_tuning;
+
+                    p.vel -= dir * recoil_velocity;
+
+                    // --- Reset ---
                     p.spin_timer = 0.0;
-                    p.last_shoot_pressed = true; // remember that we have seen the press
-                } else {
-                    // If shoot is not pressed, clear the previous flag so we can detect next rising edge.
-                    if !shoot {
-                        p.last_shoot_pressed = false;
-                    }
+                    p.last_shoot_pressed = true;
+                } else if !shoot {
+                    p.last_shoot_pressed = false;
                 }
             }
         }
@@ -759,7 +767,6 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
     }
 }
 
-
 #[inline]
 fn vec2_invalid(v: Vec2) -> bool {
     !v.x.is_finite() || !v.y.is_finite()
@@ -767,10 +774,7 @@ fn vec2_invalid(v: Vec2) -> bool {
 
 #[inline]
 fn out_of_bounds(pos: Vec2, map: &GameMap) -> bool {
-    pos.x < 0.0 ||
-    pos.y < 0.0 ||
-    pos.x > map.width ||
-    pos.y > map.height
+    pos.x < 0.0 || pos.y < 0.0 || pos.x > map.width || pos.y > map.height
 }
 
 fn sanity_check_player(player: &mut Player, map: &GameMap) -> bool {

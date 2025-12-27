@@ -1,17 +1,20 @@
 use ggez::input::keyboard::KeyCode;
 
+const SHOOT_COOLDOWN_SEC: f32 = 0.5;
+
 #[derive(Default)]
 pub struct InputState {
     rotating_left: bool,
     rotating_right: bool,
     spin_timer: f32,
+    shoot_cooldown: f32,
 }
 
 #[derive(Debug, Clone)]
 pub enum PlayerAction {
     RotateLeft,
     RotateRight,
-    Shoot
+    Shoot,
 }
 
 impl InputState {
@@ -22,6 +25,10 @@ impl InputState {
     pub fn update(&mut self, dt: f32) {
         if self.rotating_left || self.rotating_right {
             self.spin_timer += dt;
+        }
+
+        if self.shoot_cooldown > 0.0 {
+            self.shoot_cooldown -= dt;
         }
     }
 
@@ -67,13 +74,27 @@ impl InputState {
             KeyCode::ArrowLeft if self.rotating_left => {
                 self.rotating_left = false;
                 self.spin_timer = 0.0;
-                Some(PlayerAction::Shoot)
+
+                if self.shoot_cooldown <= 0.0 {
+                    self.shoot_cooldown = SHOOT_COOLDOWN_SEC;
+                    Some(PlayerAction::Shoot)
+                } else {
+                    None
+                }
             }
+
             KeyCode::ArrowRight if self.rotating_right => {
                 self.rotating_right = false;
                 self.spin_timer = 0.0;
-                Some(PlayerAction::Shoot)
+
+                if self.shoot_cooldown <= 0.0 {
+                    self.shoot_cooldown = SHOOT_COOLDOWN_SEC;
+                    Some(PlayerAction::Shoot)
+                } else {
+                    None
+                }
             }
+
             _ => None,
         }
     }
