@@ -29,6 +29,7 @@ struct Player {
     spin_timer: f32,
     last_shoot_pressed: bool,
     status: PlayerStatus,
+    shoot_cooldown_sec: f32,
 }
 
 struct Snowball {
@@ -215,6 +216,7 @@ impl GameState {
                 spin_timer: 0.0,
                 last_shoot_pressed: false,
                 status: PlayerStatus::Spectator,
+                shoot_cooldown_sec: 0.0
             },
         );
     }
@@ -232,6 +234,12 @@ impl GameState {
             if let PlayerStatus::Playing(_) = p.status {
                 p.rotating_left = left;
                 p.rotating_right = right;
+
+                if p.shoot_cooldown_sec > 0.0 {
+                    p.last_shoot_pressed = true;
+                    return;
+                }
+
                 // Edge-detect the shoot button on server side:
                 // only spawn a snowball when shoot transitions from false -> true
                 if shoot && !p.last_shoot_pressed {
@@ -275,6 +283,7 @@ impl GameState {
 
                     // --- Reset ---
                     p.spin_timer = 0.0;
+                    p.shoot_cooldown_sec = self.map.physics.shoot_cooldown_sec;
                     p.last_shoot_pressed = true;
                 } else if !shoot {
                     p.last_shoot_pressed = false;
@@ -284,6 +293,15 @@ impl GameState {
     }
 
     fn logic_step(&mut self, dt: f32) {
+        for p in self.players.values_mut() {
+            if p.shoot_cooldown_sec > 0.0 {
+                p.shoot_cooldown_sec -= dt;
+            }
+
+            if p.rotating_left || p.rotating_right {
+                p.spin_timer += dt;
+            }
+        }
         let mut dead = Vec::new();
         for (&id, sb) in self.snowballs.iter_mut() {
             sb.pos += sb.vel * dt;

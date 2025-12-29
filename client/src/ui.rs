@@ -532,6 +532,14 @@ fn draw_physics_settings(
         0.1,
         0.0..=2.0,
     );
+
+    drag(
+        ui,
+        "Shoot cooldown",
+        &mut physics.shoot_cooldown_sec,
+        0.1,
+        0.0..=2.0,
+    );
     if ui.button("Set").clicked() {
         Some(physics.clone())
     } else {

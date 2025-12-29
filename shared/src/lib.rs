@@ -220,7 +220,8 @@ pub struct PhysicsSettings {
     pub ball_bounciness: f32,
 
     pub friction_per_frame: f32,
-    pub recoil_power: f32
+    pub recoil_power: f32,
+    pub shoot_cooldown_sec: f32,
 }
 impl Default for PhysicsSettings {
     fn default() -> Self {
@@ -236,7 +237,8 @@ impl Default for PhysicsSettings {
             ball_bounciness: 0.8,
             ball_mass: 1.0,
             ball_radius: 10.0,
-            recoil_power: 1.2
+            recoil_power: 1.2,
+            shoot_cooldown_sec: 0.5
         }
     }
 }
