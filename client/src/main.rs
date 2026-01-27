@@ -158,7 +158,8 @@ impl EventHandler for MainState {
                     players,
                     snowballs,
                     ball,
-                    scores,
+                    scores_team1,
+                    scores_team2,
                     phase,
                     time_elapsed,
                     paused,
@@ -168,6 +169,7 @@ impl EventHandler for MainState {
                     game_mode,
                     action_target_time
                 } => {
+                    let scores = [(Team::Team1, scores_team1), (Team::Team2, scores_team2)].into();
                     self.game.apply_world_state(
                         players,
                         snowballs,

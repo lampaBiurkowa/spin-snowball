@@ -77,7 +77,8 @@ pub enum ServerMessage {
     WorldState {
         players: Vec<PlayerState>,
         snowballs: Vec<SnowballState>,
-        scores: std::collections::HashMap<Team, u32>,
+        scores_team1: u32,
+        scores_team2: u32,
         ball: Option<BallState>,
         phase: MatchPhase,
         time_elapsed: f32,
