@@ -1,4 +1,10 @@
+#![no_std]
+
+extern crate alloc;
+
 use serde::{Deserialize, Serialize};
+use alloc::string::String;
+use alloc::vec::Vec;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]

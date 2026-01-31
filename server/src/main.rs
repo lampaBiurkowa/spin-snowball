@@ -168,7 +168,7 @@ impl GameState {
             players: HashMap::new(),
             snowballs: HashMap::new(),
             next_snowball_id: 1,
-            scores: HashMap::new(),
+            scores: [(Team::Team1, 0), (Team::Team2, 0)].into(),
             ball,
             map,
             phase: MatchPhase::Lobby,
