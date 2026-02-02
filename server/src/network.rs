@@ -1,28 +1,35 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, time::Duration};
 
 use futures::{SinkExt, StreamExt};
 use spin_snowball_shared::*;
-use tokio::{net::TcpStream, sync::mpsc};
+use tokio::{net::TcpStream, sync::mpsc, time::sleep};
 use tokio_tungstenite::accept_async;
 use tungstenite::Message;
 use uuid::Uuid;
 
-use crate::{GameState, MatchPhase, PeerMap, PlayerStatus, Team};
+use crate::{ClientOut, GameState, MatchPhase, PeerMap, PlayerStatus, Team};
 
 pub async fn handle_connection(
     stream: TcpStream,
     peers: PeerMap,
     game_state: Arc<Mutex<GameState>>,
 ) {
-    println!("czekanie na?");
     let ws = accept_async(stream).await.unwrap();
     let (mut ws_sender, mut ws_receiver) = ws.split();
 
     let client_id = Uuid::new_v4().to_string();
     println!("New client {}", client_id);
-    let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<ServerMessage>();
+    let latest_world = Arc::new(Mutex::new(None));
 
-    peers.lock().unwrap().insert(client_id.clone(), tx.clone());
+    peers.lock().unwrap().insert(
+        client_id.clone(),
+        ClientOut {
+            tx: tx.clone(),
+            latest_world: latest_world.clone(),
+        },
+    );
+
     let map = {
         let mut gs = game_state.lock().unwrap();
         gs.add_new_player(client_id.clone());
@@ -33,20 +40,42 @@ pub async fn handle_connection(
         id: client_id.clone(),
     };
     ws_sender
-        .send(Message::Text(serde_json::to_string(&assign).unwrap().into()))
-        .await.unwrap();
+        .send(Message::Text(
+            serde_json::to_string(&assign).unwrap().into(),
+        ))
+        .await
+        .unwrap();
 
     let map = ServerMessage::Map { map };
     ws_sender
         .send(Message::Text(serde_json::to_string(&map).unwrap().into()))
-        .await.unwrap();
+        .await
+        .unwrap();
     println!("just sent map");
 
     let forward_out = async {
-        while let Some(msg) = rx.recv().await {
-            if ws_sender.send(msg).await.is_err() {
-                break;
+        loop {
+            // ---- take world state WITHOUT holding lock across await ----
+            let world_msg = {
+                let mut guard = latest_world.lock().unwrap();
+                guard.take()
+            };
+
+            if let Some(msg) = world_msg {
+                let txt = serde_json::to_string(&msg).unwrap();
+                if ws_sender.send(Message::Text(txt.into())).await.is_err() {
+                    continue;
+                }
             }
+
+            // ---- reliable messages ----
+            while let Ok(msg) = rx.try_recv() {
+                let txt = serde_json::to_string(&msg).unwrap();
+                if ws_sender.send(Message::Text(txt.into())).await.is_err() {
+                    continue;;
+                }
+            }
+            sleep(Duration::from_millis(16)).await;
         }
     };
 
@@ -71,11 +100,7 @@ pub async fn handle_connection(
                     Ok(ClientMessage::Ping { ts }) => {
                         // reply Pong
                         if let Some(tx) = peers_clone.lock().unwrap().get(&client_id_clone) {
-                            let _ = tx.send(Message::Text(
-                                serde_json::to_string(&ServerMessage::Pong { ts })
-                                    .unwrap()
-                                    .into(),
-                            ));
+                            let _ = tx.tx.send(ServerMessage::Pong { ts });
                         }
                     }
                     Ok(ClientMessage::Command { cmd }) => {
@@ -113,11 +138,12 @@ pub async fn handle_connection(
                             }
                             Command::LoadMap { data } => {
                                 gs.load_map(&data);
-                                let txt = serde_json::to_string(&ServerMessage::Map { map: gs.map.clone() }).unwrap();
                                 let peers_guard = peers.lock().unwrap();
                                 for (_id, tx) in peers_guard.iter() {
                                     println!("SENDIN");
-                                    let _ = tx.send(Message::Text(txt.clone().into()));
+                                    let _ = tx.tx.send(ServerMessage::Map {
+                                        map: gs.map.clone(),
+                                    });
                                 }
                             }
                             Command::JoinAsPlayer { team } => {
@@ -136,21 +162,23 @@ pub async fn handle_connection(
                                     p.nick = nick;
                                 }
                             }
-                            Command::SetColorDef { color, team } => {
-                                match team {
-                                    Team::Team1 => gs.team1_color = color,
-                                    Team::Team2 => gs.team2_color = color,
-                                }
-                            }
+                            Command::SetColorDef { color, team } => match team {
+                                Team::Team1 => gs.team1_color = color,
+                                Team::Team2 => gs.team2_color = color,
+                            },
                             Command::SetPhysicsSettings { settings } => {
                                 gs.map.physics = settings.clone();
-                                let txt = serde_json::to_string(&ServerMessage::PhysicsSettings { settings }).unwrap();
                                 let peers_guard = peers.lock().unwrap();
                                 for (_id, tx) in peers_guard.iter() {
-                                    let _ = tx.send(Message::Text(txt.clone().into()));
+                                    let _ = tx.tx.send(ServerMessage::PhysicsSettings {
+                                        settings: settings.clone(),
+                                    });
                                 }
-                            },
-                            Command::SetGameMode { game_mode, action_target_time } => {
+                            }
+                            Command::SetGameMode {
+                                game_mode,
+                                action_target_time,
+                            } => {
                                 gs.game_mode = game_mode;
                                 gs.action_target_time = action_target_time;
                             }

@@ -74,7 +74,7 @@ pub enum MatchPhase {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum ServerMessage {
     AssignId {
