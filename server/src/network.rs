@@ -14,6 +14,7 @@ pub async fn handle_connection(
     peers: PeerMap,
     game_state: Arc<Mutex<GameState>>,
 ) {
+    println!("czekanie na?");
     let ws = accept_async(stream).await.unwrap();
     let (mut ws_sender, mut ws_receiver) = ws.split();
 
@@ -39,6 +40,7 @@ pub async fn handle_connection(
     ws_sender
         .send(Message::Text(serde_json::to_string(&map).unwrap().into()))
         .await.unwrap();
+    println!("just sent map");
 
     let forward_out = async {
         while let Some(msg) = rx.recv().await {
@@ -114,11 +116,13 @@ pub async fn handle_connection(
                                 let txt = serde_json::to_string(&ServerMessage::Map { map: gs.map.clone() }).unwrap();
                                 let peers_guard = peers.lock().unwrap();
                                 for (_id, tx) in peers_guard.iter() {
+                                    println!("SENDIN");
                                     let _ = tx.send(Message::Text(txt.clone().into()));
                                 }
                             }
                             Command::JoinAsPlayer { team } => {
                                 if let Some(p) = gs.players.get_mut(&client_id_clone) {
+                                    println!("got join team");
                                     p.status = PlayerStatus::Playing(team);
                                 }
                             }

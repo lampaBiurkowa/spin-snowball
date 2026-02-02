@@ -216,7 +216,7 @@ impl GameState {
                 spin_timer: 0.0,
                 last_shoot_pressed: false,
                 status: PlayerStatus::Spectator,
-                shoot_cooldown_sec: 0.0
+                shoot_cooldown_sec: 0.0,
             },
         );
     }
@@ -276,8 +276,8 @@ impl GameState {
                     let snowball_mass = self.map.physics.snowball_mass;
                     let player_mass = self.map.physics.player_mass;
 
-                    let recoil_velocity =
-                        (snowball_mass * snowball_speed / player_mass) * self.map.physics.recoil_power;
+                    let recoil_velocity = (snowball_mass * snowball_speed / player_mass)
+                        * self.map.physics.recoil_power;
 
                     p.vel -= dir * recoil_velocity;
 
@@ -694,25 +694,31 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
         if elapsed >= tick {
             {
                 let mut gs = game_state.lock().unwrap();
+                // if matches!(gs.phase, MatchPhase::Lobby) {
+                //     last = now;
+                //     continue;
+                // } else
                 if gs.paused {
                     let (players, snowballs) = gs.snapshot();
                     let msg = ServerMessage::WorldState {
-                        players,
-                        snowballs,
-                        ball: gs.ball.clone().map(|x| BallState {
-                            pos: x.pos.into(),
-                            vel: x.vel.into(),
-                        }),
-                        scores_team1: gs.scores[&Team::Team1].clone(),
-                        scores_team2: gs.scores[&Team::Team2].clone(),
-                        phase: gs.phase.clone(),
-                        time_elapsed: gs.timer.elapsed_secs(),
-                        paused: gs.paused,
-                        team1_color: gs.team1_color.clone(),
-                        team2_color: gs.team2_color.clone(),
-                        player_with_active_action: gs.player_with_active_action.clone(),
-                        game_mode: gs.game_mode,
-                        action_target_time: gs.action_target_time,
+                        world: WorldState {
+                            players,
+                            snowballs,
+                            ball: gs.ball.clone().map(|x| BallState {
+                                pos: x.pos.into(),
+                                vel: x.vel.into(),
+                            }),
+                            scores_team1: gs.scores[&Team::Team1].clone(),
+                            scores_team2: gs.scores[&Team::Team2].clone(),
+                            phase: gs.phase.clone(),
+                            time_elapsed: gs.timer.elapsed_secs(),
+                            paused: gs.paused,
+                            team1_color: gs.team1_color.clone(),
+                            team2_color: gs.team2_color.clone(),
+                            player_with_active_action: gs.player_with_active_action.clone(),
+                            game_mode: gs.game_mode,
+                            action_target_time: gs.action_target_time,
+                        },
                     };
                     let txt = serde_json::to_string(&msg).unwrap();
 
@@ -755,22 +761,24 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
 
                 let (players, snowballs) = gs.snapshot();
                 let msg = ServerMessage::WorldState {
-                    players,
-                    snowballs,
-                    ball: gs.ball.clone().map(|x| BallState {
-                        pos: x.pos.into(),
-                        vel: x.vel.into(),
-                    }),
-                    scores_team1: gs.scores[&Team::Team1].clone(),
-                    scores_team2: gs.scores[&Team::Team2].clone(),
-                    phase: gs.phase.clone(),
-                    time_elapsed: gs.timer.elapsed_secs(),
-                    paused: gs.paused,
-                    team1_color: gs.team1_color.clone(),
-                    team2_color: gs.team2_color.clone(),
-                    player_with_active_action: gs.player_with_active_action.clone(),
-                    game_mode: gs.game_mode,
-                    action_target_time: gs.action_target_time,
+                    world: WorldState {
+                        players,
+                        snowballs,
+                        ball: gs.ball.clone().map(|x| BallState {
+                            pos: x.pos.into(),
+                            vel: x.vel.into(),
+                        }),
+                        scores_team1: gs.scores[&Team::Team1].clone(),
+                        scores_team2: gs.scores[&Team::Team2].clone(),
+                        phase: gs.phase.clone(),
+                        time_elapsed: gs.timer.elapsed_secs(),
+                        paused: gs.paused,
+                        team1_color: gs.team1_color.clone(),
+                        team2_color: gs.team2_color.clone(),
+                        player_with_active_action: gs.player_with_active_action.clone(),
+                        game_mode: gs.game_mode,
+                        action_target_time: gs.action_target_time,
+                    },
                 };
                 let txt = serde_json::to_string(&msg).unwrap();
 

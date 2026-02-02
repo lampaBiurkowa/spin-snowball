@@ -9,4 +9,3 @@ test = false
 
 [dependencies]
 serde = { version = "1.0", features = ["derive", "alloc"], default-features = false }
-heapless = "0.8.0"

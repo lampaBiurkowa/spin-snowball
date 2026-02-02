@@ -2,9 +2,9 @@
 
 extern crate alloc;
 
-use serde::{Deserialize, Serialize};
 use alloc::string::String;
 use alloc::vec::Vec;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
@@ -46,13 +46,13 @@ pub enum Command {
         color: ColorDef,
         team: Team,
     },
-    SetPhysicsSettings { 
-        settings: PhysicsSettings
+    SetPhysicsSettings {
+        settings: PhysicsSettings,
     },
     SetGameMode {
         game_mode: GameMode,
-        action_target_time: Option<f32>
-    }
+        action_target_time: Option<f32>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -81,19 +81,7 @@ pub enum ServerMessage {
         id: String,
     },
     WorldState {
-        players: Vec<PlayerState>,
-        snowballs: Vec<SnowballState>,
-        scores_team1: u32,
-        scores_team2: u32,
-        ball: Option<BallState>,
-        phase: MatchPhase,
-        time_elapsed: f32,
-        paused: bool,
-        team1_color: ColorDef,
-        team2_color: ColorDef,
-        player_with_active_action: Option<(String, f32)>,
-        game_mode: GameMode,
-        action_target_time: Option<f32>
+        world: WorldState,
     },
     PhysicsSettings {
         settings: PhysicsSettings,
@@ -104,6 +92,23 @@ pub enum ServerMessage {
     Pong {
         ts: u64,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WorldState {
+    pub players: Vec<PlayerState>,
+    pub snowballs: Vec<SnowballState>,
+    pub scores_team1: u32,
+    pub scores_team2: u32,
+    pub ball: Option<BallState>,
+    pub phase: MatchPhase,
+    pub time_elapsed: f32,
+    pub paused: bool,
+    pub team1_color: ColorDef,
+    pub team2_color: ColorDef,
+    pub player_with_active_action: Option<(String, f32)>,
+    pub game_mode: GameMode,
+    pub action_target_time: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -245,7 +250,7 @@ impl Default for PhysicsSettings {
             ball_mass: 1.0,
             ball_radius: 10.0,
             recoil_power: 1.2,
-            shoot_cooldown_sec: 0.5
+            shoot_cooldown_sec: 0.5,
         }
     }
 }
@@ -260,7 +265,7 @@ pub enum GameMode {
     KingOfTheHill,
     Race,
     HotPotato,
-    Shooter
+    Shooter,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamDef {

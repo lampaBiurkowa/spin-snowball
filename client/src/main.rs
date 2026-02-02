@@ -155,34 +155,22 @@ impl EventHandler for MainState {
                     self.game.player.id = Some(id);
                 }
                 ServerMessage::WorldState {
-                    players,
-                    snowballs,
-                    ball,
-                    scores_team1,
-                    scores_team2,
-                    phase,
-                    time_elapsed,
-                    paused,
-                    team1_color,
-                    team2_color,
-                    player_with_active_action,
-                    game_mode,
-                    action_target_time
+                    world
                 } => {
-                    let scores = [(Team::Team1, scores_team1), (Team::Team2, scores_team2)].into();
+                    let scores = [(Team::Team1, world.scores_team1), (Team::Team2, world.scores_team2)].into();
                     self.game.apply_world_state(
-                        players,
-                        snowballs,
-                        ball,
+                        world.players,
+                        world.snowballs,
+                        world.ball,
                         scores,
-                        phase,
-                        time_elapsed,
-                        paused,
-                        team1_color,
-                        team2_color,
-                        player_with_active_action,
-                        game_mode,
-                        action_target_time
+                        world.phase,
+                        world.time_elapsed,
+                        world.paused,
+                        world.team1_color,
+                        world.team2_color,
+                        world.player_with_active_action,
+                        world.game_mode,
+                        world.action_target_time
                     );
                 }
                 ServerMessage::Pong { .. } => {}
