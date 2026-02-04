@@ -7,7 +7,6 @@ use glam::Vec2;
 use spin_snowball_shared::*;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio_tungstenite::tungstenite::Message;
 
 use crate::network::handle_connection;
 use crate::physics::{simulate_collisions, simulate_movement, SimulateCollisionResponse};
@@ -145,7 +144,7 @@ struct GameState {
     snowballs: HashMap<u64, Snowball>,
     next_snowball_id: u64,
     map: GameMap,
-    scores: HashMap<Team, u32>,
+    scores: HashMap<Team, u8>,
     ball: Option<Ball>,
     phase: MatchPhase,
     timer: MatchTimer,
@@ -179,16 +178,16 @@ impl GameState {
             timer: MatchTimer::new(),
             paused: false,
             team1_color: ColorDef {
-                r: 200.0 / 255.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
+                r: 200,
+                g: 0,
+                b: 0,
+                a: 255,
             },
             team2_color: ColorDef {
-                r: 0.0,
-                g: 0.0,
-                b: 200.0 / 255.0,
-                a: 1.0,
+                r: 0,
+                g: 0,
+                b: 200,
+                a: 255,
             },
             player_with_active_action: None,
             game_mode: GameMode::Fight,
@@ -353,7 +352,7 @@ impl GameState {
         self.reset_positions();
     }
 
-    pub fn start_match(&mut self, score_limit: Option<u32>, time_limit_secs: Option<u32>) {
+    pub fn start_match(&mut self, score_limit: Option<u8>, time_limit_secs: Option<u32>) {
         println!("match started: {:?} {:?}", score_limit, time_limit_secs);
 
         self.scores.clear();

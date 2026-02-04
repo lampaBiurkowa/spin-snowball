@@ -31,10 +31,10 @@ impl Renderer {
                     mask: _,
                 } => {
                     let c = Color::from_rgba(
-                        (color.r * 255.0) as u8,
-                        (color.g * 255.0) as u8,
-                        (color.b * 255.0) as u8,
-                        (color.a * 255.0) as u8,
+                        color.r,
+                        color.g,
+                        color.b,
+                        color.a,
                     );
 
                     mb.circle(DrawMode::fill(), Vec2::new(*x, *y), *radius, 0.5, c)?;
@@ -51,10 +51,10 @@ impl Renderer {
                     mask: _,
                 } => {
                     let c = Color::from_rgba(
-                        (color.r * 255.0) as u8,
-                        (color.g * 255.0) as u8,
-                        (color.b * 255.0) as u8,
-                        (color.a * 255.0) as u8,
+                        color.r,
+                        color.g,
+                        color.b,
+                        color.a,
                     );
                     mb.rectangle(DrawMode::fill(), graphics::Rect::new(*x, *y, *w, *h), c)?;
                 }
@@ -69,10 +69,10 @@ impl Renderer {
                     ..
                 } => {
                     let mut c = Color::from_rgba(
-                        (color.r * 255.0) as u8,
-                        (color.g * 255.0) as u8,
-                        (color.b * 255.0) as u8,
-                        (color.a * 255.0) as u8,
+                        color.r,
+                        color.g,
+                        color.b,
+                        color.a,
                     );
 
                     if *is_hole {
@@ -310,16 +310,16 @@ impl Renderer {
 fn player_color(state: &GameState, team: Team) -> Color {
     match team {
         Team::Team1 => Color {
-            r: state.team1_color.r,
-            g: state.team1_color.g,
-            b: state.team1_color.b,
-            a: state.team1_color.a,
+            r: state.team1_color.r as f32 / 255.0,
+            g: state.team1_color.g as f32 / 255.0,
+            b: state.team1_color.b as f32 / 255.0,
+            a: state.team1_color.a as f32 / 255.0,
         },
         Team::Team2 => Color {
-            r: state.team2_color.r,
-            g: state.team2_color.g,
-            b: state.team2_color.b,
-            a: state.team2_color.a,
+            r: state.team2_color.r as f32 / 255.0,
+            g: state.team2_color.g as f32 / 255.0,
+            b: state.team2_color.b as f32 / 255.0,
+            a: state.team2_color.a as f32 / 255.0,
         },
     }
 }

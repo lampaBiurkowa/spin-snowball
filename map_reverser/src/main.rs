@@ -14,9 +14,9 @@ struct MapData {
 }
 
 fn color_to_rgba(c: &ColorDef, mask: &[CollisionMaskTag], is_hole: bool) -> Rgba<u8> {
-    let mut r = (c.r.clamp(0.0, 1.0) * 255.0) as u8;
-    let mut g = (c.g.clamp(0.0, 1.0) * 255.0) as u8;
-    let mut b = (c.b.clamp(0.0, 1.0) * 255.0) as u8;
+    let mut r = c.r.clamp(0, 255);
+    let mut g = c.g.clamp(0, 255);
+    let mut b = c.b.clamp(0, 255);
     let mut a = 255u8;
 
     if !is_hole {

@@ -72,7 +72,7 @@ pub async fn handle_connection(
             while let Ok(msg) = rx.try_recv() {
                 let txt = serde_json::to_string(&msg).unwrap();
                 if ws_sender.send(Message::Text(txt.into())).await.is_err() {
-                    continue;;
+                    continue;
                 }
             }
             sleep(Duration::from_millis(16)).await;

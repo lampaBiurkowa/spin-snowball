@@ -26,7 +26,7 @@ pub enum ClientMessage {
 #[serde(tag = "cmd")]
 pub enum Command {
     Start {
-        score_limit: Option<u32>,
+        score_limit: Option<u8>,
         time_limit_secs: Option<u32>,
     },
     Stop,
@@ -69,7 +69,7 @@ pub enum PlayerStatus {
 pub enum MatchPhase {
     Lobby,
     Playing {
-        score_limit: Option<u32>,
+        score_limit: Option<u8>,
         time_limit_secs: Option<u32>,
     },
 }
@@ -98,8 +98,8 @@ pub enum ServerMessage {
 pub struct WorldState {
     pub players: Vec<PlayerState>,
     pub snowballs: Vec<SnowballState>,
-    pub scores_team1: u32,
-    pub scores_team2: u32,
+    pub scores_team1: u8,
+    pub scores_team2: u8,
     pub ball: Option<BallState>,
     pub phase: MatchPhase,
     pub time_elapsed: f32,
@@ -197,10 +197,10 @@ pub enum MapObject {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorDef {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-    pub a: f32,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

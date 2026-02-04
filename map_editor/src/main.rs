@@ -79,9 +79,9 @@ fn decode_rgb(r: u8, g: u8, b: u8, a: u8) -> (bool, Vec<CollisionMaskTag>) {
     (is_hole, mask)
 }
 
-fn strip_mask_bit(c: u8) -> f32 {
+fn strip_mask_bit(c: u8) -> u8 {
     let base = c & 0b1111_1110; // clear LSB
-    base as f32 / 255.0
+    base
 }
 
 fn label_components(mask: &Array2<u32>) -> (Array2<i32>, i32) {
@@ -163,7 +163,7 @@ fn extract_rectangles(data: &[RGBA], width: u32, height: u32) -> Vec<MapObject> 
                     r: strip_mask_bit(px.r),
                     g: strip_mask_bit(px.g),
                     b: strip_mask_bit(px.b),
-                    a: 1.0,
+                    a: 255,
                 },
                 mask: if is_hole {
                     vec![]
@@ -222,7 +222,7 @@ fn extract_circles(data: &[RGBA], width: u32, height: u32) -> Vec<MapObject> {
                     r: strip_mask_bit(px.r),
                     g: strip_mask_bit(px.g),
                     b: strip_mask_bit(px.b),
-                    a: 1.0,
+                    a: 255,
                 },
                 mask: if is_hole {
                     vec![]
@@ -369,7 +369,7 @@ fn extract_lines(data: &[RGBA], width: u32, height: u32) -> Vec<MapObject> {
                             r: strip_mask_bit(px.r),
                             g: strip_mask_bit(px.g),
                             b: strip_mask_bit(px.b),
-                            a: 1.0,
+                            a: 255,
                         },
                         mask: if is_hole {
                             vec![]
