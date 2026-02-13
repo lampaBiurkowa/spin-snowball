@@ -29,8 +29,8 @@ fn color_to_rgba(c: &ColorDef, mask: &[CollisionMaskTag], is_hole: bool) -> Rgba
             match tag {
                 CollisionMaskTag::Snowball => r |= 1,
                 CollisionMaskTag::Ball => g |= 1,
-                CollisionMaskTag::PlayerTeam1 => b |= 1,
-                CollisionMaskTag::PlayerTeam2 => a |= 1,
+                CollisionMaskTag::Team1 => b |= 1,
+                CollisionMaskTag::Team2 => a |= 1,
             }
         }
     }

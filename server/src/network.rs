@@ -137,6 +137,7 @@ pub async fn handle_connection(
                                 gs.stop_match();
                             }
                             Command::LoadMap { data } => {
+                                println!("got map");
                                 gs.load_map(&data);
                                 let peers_guard = peers.lock().unwrap();
                                 for (_id, tx) in peers_guard.iter() {

@@ -69,10 +69,10 @@ fn decode_rgb(r: u8, g: u8, b: u8, a: u8) -> (bool, Vec<CollisionMaskTag>) {
         mask.push(CollisionMaskTag::Ball);
     }
     if bit_mask(b) {
-        mask.push(CollisionMaskTag::PlayerTeam1);
+        mask.push(CollisionMaskTag::Team1);
     }
     if bit_mask(a) {
-        mask.push(CollisionMaskTag::PlayerTeam2);
+        mask.push(CollisionMaskTag::Team2);
     }
     let is_hole = r == 127 && b == 127 && g == 127;
 

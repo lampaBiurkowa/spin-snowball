@@ -94,8 +94,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -116,8 +116,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -137,8 +137,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -158,8 +158,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -180,8 +180,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -202,8 +202,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -224,8 +224,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -245,8 +245,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -266,8 +266,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -288,8 +288,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -310,8 +310,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -332,8 +332,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -354,8 +354,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]
@@ -376,8 +376,8 @@
           "a": 255
         },
         "mask": [
-          "player_team1",
-          "player_team2",
+          "team1",
+          "team2",
           "ball",
           "snowball"
         ]

@@ -140,8 +140,8 @@ pub struct SnowballState {
 #[derive(PartialEq)]
 pub enum CollisionMaskTag {
     Ball,
-    PlayerTeam1,
-    PlayerTeam2,
+    Team1,
+    Team2,
     Snowball,
 }
 
@@ -151,8 +151,8 @@ pub fn matches_ball(mask: &Vec<CollisionMaskTag>) -> bool {
 
 pub fn matches_player(mask: &Vec<CollisionMaskTag>, team: Team) -> bool {
     match team {
-        Team::Team1 => mask.contains(&CollisionMaskTag::PlayerTeam1),
-        Team::Team2 => mask.contains(&CollisionMaskTag::PlayerTeam2),
+        Team::Team1 => mask.contains(&CollisionMaskTag::Team1),
+        Team::Team2 => mask.contains(&CollisionMaskTag::Team2),
     }
 }
 
