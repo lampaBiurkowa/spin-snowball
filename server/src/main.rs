@@ -7,7 +7,6 @@ use glam::Vec2;
 use spin_snowball_shared::*;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio_tungstenite::tungstenite::Message;
 
 use crate::network::handle_connection;
 use crate::physics::{simulate_collisions, simulate_movement, SimulateCollisionResponse};
@@ -15,7 +14,7 @@ use crate::physics::{simulate_collisions, simulate_movement, SimulateCollisionRe
 mod network;
 mod physics;
 
-const TICK_HZ: f32 = 60.0;
+const TICK_HZ: f32 = 30.0;
 const DT: f32 = 1.0 / TICK_HZ;
 
 struct Player {
@@ -94,8 +93,12 @@ impl MatchTimer {
     }
 }
 
-type Tx = UnboundedSender<Message>;
-type PeerMap = Arc<Mutex<HashMap<String, Tx>>>;
+type Tx = UnboundedSender<ServerMessage>;
+struct ClientOut {
+    tx: UnboundedSender<ServerMessage>,
+    latest_world: Arc<Mutex<Option<ServerMessage>>>,
+}
+type PeerMap = Arc<Mutex<HashMap<String, ClientOut>>>;
 
 fn load_map_form_data(data: &str) -> GameMap {
     serde_json::from_str(data).unwrap()
@@ -141,7 +144,7 @@ struct GameState {
     snowballs: HashMap<u64, Snowball>,
     next_snowball_id: u64,
     map: GameMap,
-    scores: HashMap<Team, u32>,
+    scores: HashMap<Team, u8>,
     ball: Option<Ball>,
     phase: MatchPhase,
     timer: MatchTimer,
@@ -168,23 +171,23 @@ impl GameState {
             players: HashMap::new(),
             snowballs: HashMap::new(),
             next_snowball_id: 1,
-            scores: HashMap::new(),
+            scores: [(Team::Team1, 0), (Team::Team2, 0)].into(),
             ball,
             map,
             phase: MatchPhase::Lobby,
             timer: MatchTimer::new(),
             paused: false,
             team1_color: ColorDef {
-                r: 200.0 / 255.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
+                r: 200,
+                g: 0,
+                b: 0,
+                a: 255,
             },
             team2_color: ColorDef {
-                r: 0.0,
-                g: 0.0,
-                b: 200.0 / 255.0,
-                a: 1.0,
+                r: 0,
+                g: 0,
+                b: 200,
+                a: 255,
             },
             player_with_active_action: None,
             game_mode: GameMode::Fight,
@@ -216,7 +219,7 @@ impl GameState {
                 spin_timer: 0.0,
                 last_shoot_pressed: false,
                 status: PlayerStatus::Spectator,
-                shoot_cooldown_sec: 0.0
+                shoot_cooldown_sec: 0.0,
             },
         );
     }
@@ -276,8 +279,8 @@ impl GameState {
                     let snowball_mass = self.map.physics.snowball_mass;
                     let player_mass = self.map.physics.player_mass;
 
-                    let recoil_velocity =
-                        (snowball_mass * snowball_speed / player_mass) * self.map.physics.recoil_power;
+                    let recoil_velocity = (snowball_mass * snowball_speed / player_mass)
+                        * self.map.physics.recoil_power;
 
                     p.vel -= dir * recoil_velocity;
 
@@ -349,7 +352,7 @@ impl GameState {
         self.reset_positions();
     }
 
-    pub fn start_match(&mut self, score_limit: Option<u32>, time_limit_secs: Option<u32>) {
+    pub fn start_match(&mut self, score_limit: Option<u8>, time_limit_secs: Option<u32>) {
         println!("match started: {:?} {:?}", score_limit, time_limit_secs);
 
         self.scores.clear();
@@ -694,16 +697,21 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
         if elapsed >= tick {
             {
                 let mut gs = game_state.lock().unwrap();
+                // if matches!(gs.phase, MatchPhase::Lobby) {
+                //     last = now;
+                //     continue;
+                // } else
                 if gs.paused {
                     let (players, snowballs) = gs.snapshot();
-                    let msg = ServerMessage::WorldState {
+                    let world = WorldState {
                         players,
                         snowballs,
                         ball: gs.ball.clone().map(|x| BallState {
                             pos: x.pos.into(),
                             vel: x.vel.into(),
                         }),
-                        scores: gs.scores.clone(),
+                        scores_team1: gs.scores[&Team::Team1].clone(),
+                        scores_team2: gs.scores[&Team::Team2].clone(),
                         phase: gs.phase.clone(),
                         time_elapsed: gs.timer.elapsed_secs(),
                         paused: gs.paused,
@@ -713,11 +721,12 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                         game_mode: gs.game_mode,
                         action_target_time: gs.action_target_time,
                     };
-                    let txt = serde_json::to_string(&msg).unwrap();
 
                     let peers_guard = peers.lock().unwrap();
-                    for (_, tx) in peers_guard.iter() {
-                        let _ = tx.send(Message::Text(txt.clone().into()));
+                    for client in peers_guard.values() {
+                        *client.latest_world.lock().unwrap() = Some(ServerMessage::WorldState {
+                            world: world.clone(),
+                        });
                     }
 
                     last = now;
@@ -753,14 +762,15 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                 }
 
                 let (players, snowballs) = gs.snapshot();
-                let msg = ServerMessage::WorldState {
+                let world = WorldState {
                     players,
                     snowballs,
                     ball: gs.ball.clone().map(|x| BallState {
                         pos: x.pos.into(),
                         vel: x.vel.into(),
                     }),
-                    scores: gs.scores.clone(),
+                    scores_team1: gs.scores[&Team::Team1].clone(),
+                    scores_team2: gs.scores[&Team::Team2].clone(),
                     phase: gs.phase.clone(),
                     time_elapsed: gs.timer.elapsed_secs(),
                     paused: gs.paused,
@@ -770,11 +780,12 @@ async fn physics_loop(game_state: Arc<Mutex<GameState>>, peers: PeerMap) {
                     game_mode: gs.game_mode,
                     action_target_time: gs.action_target_time,
                 };
-                let txt = serde_json::to_string(&msg).unwrap();
 
                 let peers_guard = peers.lock().unwrap();
-                for (_id, tx) in peers_guard.iter() {
-                    let _ = tx.send(Message::Text(txt.clone().into()));
+                for client in peers_guard.values() {
+                    *client.latest_world.lock().unwrap() = Some(ServerMessage::WorldState {
+                        world: world.clone(),
+                    });
                 }
             }
             last = now;

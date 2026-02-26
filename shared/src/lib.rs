@@ -1,3 +1,9 @@
+#![no_std]
+
+extern crate alloc;
+
+use alloc::string::String;
+use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -20,7 +26,7 @@ pub enum ClientMessage {
 #[serde(tag = "cmd")]
 pub enum Command {
     Start {
-        score_limit: Option<u32>,
+        score_limit: Option<u8>,
         time_limit_secs: Option<u32>,
     },
     Stop,
@@ -40,13 +46,13 @@ pub enum Command {
         color: ColorDef,
         team: Team,
     },
-    SetPhysicsSettings { 
-        settings: PhysicsSettings
+    SetPhysicsSettings {
+        settings: PhysicsSettings,
     },
     SetGameMode {
         game_mode: GameMode,
-        action_target_time: Option<f32>
-    }
+        action_target_time: Option<f32>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -63,30 +69,19 @@ pub enum PlayerStatus {
 pub enum MatchPhase {
     Lobby,
     Playing {
-        score_limit: Option<u32>,
+        score_limit: Option<u8>,
         time_limit_secs: Option<u32>,
     },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum ServerMessage {
     AssignId {
         id: String,
     },
     WorldState {
-        players: Vec<PlayerState>,
-        snowballs: Vec<SnowballState>,
-        scores: std::collections::HashMap<Team, u32>,
-        ball: Option<BallState>,
-        phase: MatchPhase,
-        time_elapsed: f32,
-        paused: bool,
-        team1_color: ColorDef,
-        team2_color: ColorDef,
-        player_with_active_action: Option<(String, f32)>,
-        game_mode: GameMode,
-        action_target_time: Option<f32>
+        world: WorldState,
     },
     PhysicsSettings {
         settings: PhysicsSettings,
@@ -97,6 +92,23 @@ pub enum ServerMessage {
     Pong {
         ts: u64,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WorldState {
+    pub players: Vec<PlayerState>,
+    pub snowballs: Vec<SnowballState>,
+    pub scores_team1: u8,
+    pub scores_team2: u8,
+    pub ball: Option<BallState>,
+    pub phase: MatchPhase,
+    pub time_elapsed: f32,
+    pub paused: bool,
+    pub team1_color: ColorDef,
+    pub team2_color: ColorDef,
+    pub player_with_active_action: Option<(String, f32)>,
+    pub game_mode: GameMode,
+    pub action_target_time: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -128,8 +140,8 @@ pub struct SnowballState {
 #[derive(PartialEq)]
 pub enum CollisionMaskTag {
     Ball,
-    PlayerTeam1,
-    PlayerTeam2,
+    Team1,
+    Team2,
     Snowball,
 }
 
@@ -139,8 +151,8 @@ pub fn matches_ball(mask: &Vec<CollisionMaskTag>) -> bool {
 
 pub fn matches_player(mask: &Vec<CollisionMaskTag>, team: Team) -> bool {
     match team {
-        Team::Team1 => mask.contains(&CollisionMaskTag::PlayerTeam1),
-        Team::Team2 => mask.contains(&CollisionMaskTag::PlayerTeam2),
+        Team::Team1 => mask.contains(&CollisionMaskTag::Team1),
+        Team::Team2 => mask.contains(&CollisionMaskTag::Team2),
     }
 }
 
@@ -185,10 +197,10 @@ pub enum MapObject {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorDef {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-    pub a: f32,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -238,7 +250,7 @@ impl Default for PhysicsSettings {
             ball_mass: 1.0,
             ball_radius: 10.0,
             recoil_power: 1.2,
-            shoot_cooldown_sec: 0.5
+            shoot_cooldown_sec: 0.5,
         }
     }
 }
@@ -253,7 +265,7 @@ pub enum GameMode {
     KingOfTheHill,
     Race,
     HotPotato,
-    Shooter
+    Shooter,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamDef {

@@ -10,7 +10,7 @@ use crate::state::GameState;
 
 pub enum UIMessage {
     Start {
-        score_limit: Option<u32>,
+        score_limit: Option<u8>,
         time_limit_secs: Option<u32>,
     },
     Pause,
@@ -43,7 +43,7 @@ pub struct UiState {
     ctx: ggegui::Gui,
     sender: Sender<UIMessage>,
     score_limit_enabled: bool,
-    score_limit: u32,
+    score_limit: u8,
     time_limit_enabled: bool,
     time_limit_secs: u32,
     map_path: String,
@@ -564,10 +564,10 @@ fn drag<T>(
 
 fn egui_to_server_color(c: egui::Color32) -> ColorDef {
     ColorDef {
-        r: c.r() as f32 / 255.0,
-        g: c.g() as f32 / 255.0,
-        b: c.b() as f32 / 255.0,
-        a: c.a() as f32 / 255.0,
+        r: c.r(),
+        g: c.g(),
+        b: c.b(),
+        a: c.a()
     }
 }
 
