@@ -40,15 +40,15 @@ pub async fn handle_connection(
         id: client_id.clone(),
     };
     ws_sender
-        .send(Message::Text(
-            serde_json::to_string(&assign).unwrap().into(),
+        .send(Message::Binary(
+            postcard::to_allocvec(&assign).unwrap().into(),
         ))
         .await
         .unwrap();
 
     let map = ServerMessage::Map { map };
     ws_sender
-        .send(Message::Text(serde_json::to_string(&map).unwrap().into()))
+        .send(Message::Binary(postcard::to_allocvec(&map).unwrap().into()))
         .await
         .unwrap();
     println!("just sent map");
@@ -62,16 +62,16 @@ pub async fn handle_connection(
             };
 
             if let Some(msg) = world_msg {
-                let txt = serde_json::to_string(&msg).unwrap();
-                if ws_sender.send(Message::Text(txt.into())).await.is_err() {
+                let txt = postcard::to_allocvec(&msg).unwrap();
+                if ws_sender.send(Message::Binary(txt.into())).await.is_err() {
                     continue;
                 }
             }
 
             // ---- reliable messages ----
             while let Ok(msg) = rx.try_recv() {
-                let txt = serde_json::to_string(&msg).unwrap();
-                if ws_sender.send(Message::Text(txt.into())).await.is_err() {
+                let txt = postcard::to_allocvec(&msg).unwrap();
+                if ws_sender.send(Message::Binary(txt.into())).await.is_err() {
                     continue;
                 }
             }
@@ -84,8 +84,8 @@ pub async fn handle_connection(
     let client_id_clone = client_id.clone();
     let inbound = async {
         while let Some(Ok(msg)) = ws_receiver.next().await {
-            if let Message::Text(txt) = msg {
-                match serde_json::from_str::<ClientMessage>(&txt) {
+            if let Message::Binary(x) = msg {
+                match postcard::from_bytes::<ClientMessage>(&x) {
                     Ok(ClientMessage::Input { left, right, shoot }) => {
                         // update player's input snapshot in game state
                         let mut gs = game_state_clone.lock().unwrap();
@@ -138,7 +138,7 @@ pub async fn handle_connection(
                             }
                             Command::LoadMap { data } => {
                                 println!("got map");
-                                gs.load_map(&data);
+                                gs.load_map(data);
                                 let peers_guard = peers.lock().unwrap();
                                 for (_id, tx) in peers_guard.iter() {
                                     println!("SENDIN");
@@ -149,7 +149,6 @@ pub async fn handle_connection(
                             }
                             Command::JoinAsPlayer { team } => {
                                 if let Some(p) = gs.players.get_mut(&client_id_clone) {
-                                    println!("got join team");
                                     p.status = PlayerStatus::Playing(team);
                                 }
                             }

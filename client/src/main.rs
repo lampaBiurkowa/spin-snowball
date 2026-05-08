@@ -81,7 +81,7 @@ impl MainState {
                     let data = std::fs::read_to_string(path).unwrap();
                     self.game.map = serde_json::from_str(&data).unwrap();
                     self.network.send(ClientMessage::Command {
-                        cmd: Command::LoadMap { data },
+                        cmd: Command::LoadMap { data: self.game.map.clone() },
                     });
                 }
                 UIMessage::JoinTeam { player_id, status } => {

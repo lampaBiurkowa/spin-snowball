@@ -30,8 +30,8 @@ pub fn spawn_network_thread(server_addr: &str) -> (Sender<ClientMessage>, Receiv
         loop {
             // 1. Send all pending outbound messages
             while let Ok(msg) = to_net_rx.try_recv() {
-                if let Ok(txt) = serde_json::to_string(&msg) {
-                    if socket.send(Message::Text(txt.into())).is_err() {
+                if let Ok(txt) = postcard::to_allocvec(&msg) {
+                    if socket.send(Message::Binary(txt.into())).is_err() {
                         eprintln!("Write error, closing network thread");
                         return;
                     }
@@ -40,8 +40,8 @@ pub fn spawn_network_thread(server_addr: &str) -> (Sender<ClientMessage>, Receiv
 
             // 2. Try to read one incoming message (blocking up to 10 ms)
             match socket.read() {
-                Ok(Message::Text(txt)) => {
-                    if let Ok(sm) = serde_json::from_str::<ServerMessage>(&txt) {
+                Ok(Message::Binary(txt)) => {
+                    if let Ok(sm) = postcard::from_bytes::<ServerMessage>(&txt) {
                         let _ = from_net_tx.send(sm);
                     }
                 }

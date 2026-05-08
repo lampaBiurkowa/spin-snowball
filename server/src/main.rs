@@ -165,7 +165,6 @@ impl GameState {
             }),
             _ => None,
         };
-        println!("HEJA {:?}", ball.is_some());
 
         Self {
             players: HashMap::new(),
@@ -347,8 +346,8 @@ impl GameState {
         (players, snowballs)
     }
 
-    fn load_map(&mut self, data: &str) {
-        self.map = serde_json::from_str(&data).unwrap();
+    fn load_map(&mut self, map: GameMap) {
+        self.map = map;
         self.reset_positions();
     }
 

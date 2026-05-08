@@ -7,7 +7,6 @@ use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
 pub enum ClientMessage {
     Input {
         left: bool,
@@ -23,7 +22,6 @@ pub enum ClientMessage {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "cmd")]
 pub enum Command {
     Start {
         score_limit: Option<u8>,
@@ -33,7 +31,7 @@ pub enum Command {
     Pause,
     Resume,
     LoadMap {
-        data: String,
+        data: GameMap,
     },
     JoinAsPlayer {
         team: Team,
@@ -75,7 +73,6 @@ pub enum MatchPhase {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type")]
 pub enum ServerMessage {
     AssignId {
         id: String,
@@ -94,7 +91,7 @@ pub enum ServerMessage {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)] //TODO remove partialeq
 pub struct WorldState {
     pub players: Vec<PlayerState>,
     pub snowballs: Vec<SnowballState>,
@@ -111,13 +108,13 @@ pub struct WorldState {
     pub action_target_time: Option<f32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BallState {
     pub pos: [f32; 2],
     pub vel: [f32; 2],
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PlayerState {
     pub id: String,
     pub nick: String,
@@ -127,7 +124,7 @@ pub struct PlayerState {
     pub status: PlayerStatus,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct SnowballState {
     pub id: u64,
     pub pos: [f32; 2],
@@ -194,7 +191,7 @@ pub enum MapObject {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorDef {
     pub r: u8,
