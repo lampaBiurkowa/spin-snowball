@@ -1,0 +1,278 @@
+{
+  "name": "unigoal",
+  "width": 1200,
+  "height": 800,
+  "physics": {
+    "ball_bounciness": 0.7,
+    "ball_mass": 1.0,
+    "ball_radius": 10.0,
+    "friction_per_frame": 0.99,
+    "player_bounciness": 0.6,
+    "player_mass": 1.0,
+    "player_radius": 25.0,
+    "snowball_bounciness": 0.9,
+    "snowball_lifetime_sec": 3.0,
+    "snowball_mass": 0.5,
+    "snowball_radius": 8.0,
+    "recoil_power": 1.2,
+    "shoot_cooldown_sec": 0.5
+  },
+  "team1": {
+    "spawn_x": 300.0,
+    "spawn_y": 400.0
+  },
+  "team2": {
+    "spawn_x": 900.0,
+    "spawn_y": 400.0
+  },
+  "ball": {
+    "spawn_x": 600.0,
+    "spawn_y": 400.0
+  },
+  "goals": [
+    {
+      "x": 1080.0,
+      "y": 297.0,
+      "w": 27.0,
+      "h": 91.0,
+      "team": "Team1"
+    },
+    {
+      "x": 1080.0,
+      "y": 390.0,
+      "w": 27.0,
+      "h": 92.0,
+      "team": "Team2"
+    }
+  ],
+  "objects": [
+    {
+      "rect": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 252
+        },
+        "factor": 1.0,
+        "h": 800.0,
+        "is_hole": false,
+        "mask": [
+          "snowball",
+          "ball",
+          "team1",
+          "team2"
+        ],
+        "w": 24.0,
+        "x": 0.0,
+        "y": 0.0
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 254
+        },
+        "factor": 1.0,
+        "h": 20.0,
+        "is_hole": false,
+        "mask": [
+          "snowball",
+          "ball",
+          "team1",
+          "team2"
+        ],
+        "w": 1154.0,
+        "x": 24.0,
+        "y": 0.0
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 252
+        },
+        "factor": 1.0,
+        "h": 800.0,
+        "is_hole": false,
+        "mask": [
+          "snowball",
+          "ball",
+          "team1",
+          "team2"
+        ],
+        "w": 22.0,
+        "x": 1178.0,
+        "y": 0.0
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 254
+        },
+        "factor": 1.0,
+        "h": 15.0,
+        "is_hole": false,
+        "mask": [
+          "ball"
+        ],
+        "w": 10.0,
+        "x": 1078.0,
+        "y": 5.0
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 254
+        },
+        "factor": 1.0,
+        "h": 241.0,
+        "is_hole": false,
+        "mask": [
+          "ball"
+        ],
+        "w": 10.0,
+        "x": 1078.0,
+        "y": 20.0
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 254
+        },
+        "factor": 1.0,
+        "h": 260.0,
+        "is_hole": false,
+        "mask": [
+          "ball"
+        ],
+        "w": 11.0,
+        "x": 1085.0,
+        "y": 515.0
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 254
+        },
+        "factor": 1.0,
+        "h": 25.0,
+        "is_hole": false,
+        "mask": [
+          "snowball",
+          "ball",
+          "team1",
+          "team2"
+        ],
+        "w": 1061.0,
+        "x": 24.0,
+        "y": 775.0
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 254
+        },
+        "factor": 1.0,
+        "h": 25.0,
+        "is_hole": false,
+        "mask": [
+          "ball"
+        ],
+        "w": 11.0,
+        "x": 1085.0,
+        "y": 775.0
+      }
+    },
+    {
+      "rect": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 254
+        },
+        "factor": 1.0,
+        "h": 25.0,
+        "is_hole": false,
+        "mask": [
+          "snowball",
+          "ball",
+          "team1",
+          "team2"
+        ],
+        "w": 82.0,
+        "x": 1096.0,
+        "y": 775.0
+      }
+    },
+    {
+      "circle": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 254
+        },
+        "factor": 1.0,
+        "is_hole": false,
+        "mask": [
+          "snowball",
+          "ball",
+          "team1",
+          "team2"
+        ],
+        "radius": 18.0,
+        "x": 1083.0,
+        "y": 277.0
+      }
+    },
+    {
+      "circle": {
+        "color": {
+          "a": 255,
+          "b": 254,
+          "g": 254,
+          "r": 254
+        },
+        "factor": 1.0,
+        "is_hole": false,
+        "mask": [
+          "snowball",
+          "ball",
+          "team1",
+          "team2"
+        ],
+        "radius": 18.0,
+        "x": 1086.0,
+        "y": 500.0
+      }
+    }
+  ]
+}
