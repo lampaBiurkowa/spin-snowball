@@ -1,3 +1,4 @@
+use ggez::conf::Backend;
 use ggez::event::{self, EventHandler};
 use ggez::input::keyboard::KeyInput;
 use ggez::winit::keyboard::PhysicalKey;
@@ -253,6 +254,56 @@ impl EventHandler for MainState {
     // }
 }
 
+/// Which graphics API to ask wgpu for.
+///
+/// Its DX12 backend hands the shaders to whatever `d3dcompiler` is on the
+/// machine, and under wine that is vkd3d, which cannot compile what ggez's
+/// shaders turn into ("E5017: ... Shader model 5.1+ resource array") and takes
+/// the game down on the first pipeline it builds. Vulkan goes through
+/// winevulkan instead and works, so DX12 is left out when we are running under
+/// wine. That is how the Dibrysoft launcher runs Windows builds on Linux.
+///
+/// `SPIN_SNOWBALL_BACKEND` overrides the choice: vulkan, dx12, gl, primary or
+/// all.
+fn graphics_backend() -> Backend {
+    if let Ok(name) = env::var("SPIN_SNOWBALL_BACKEND") {
+        match backend_by_name(&name) {
+            Some(backend) => {
+                println!("Graphics: {backend:?}, asked for by SPIN_SNOWBALL_BACKEND");
+                return backend;
+            }
+            None => eprintln!("Graphics: SPIN_SNOWBALL_BACKEND={name} means nothing here"),
+        }
+    }
+
+    if under_wine() {
+        println!("Graphics: Vulkan, because DX12 under wine cannot compile the shaders");
+        Backend::Vulkan
+    } else {
+        Backend::All
+    }
+}
+
+fn backend_by_name(name: &str) -> Option<Backend> {
+    match name.trim().to_lowercase().as_str() {
+        "vulkan" => Some(Backend::Vulkan),
+        "dx12" => Some(Backend::Dx12),
+        "gl" => Some(Backend::Gl),
+        "metal" => Some(Backend::Metal),
+        "primary" => Some(Backend::OnlyPrimary),
+        "all" => Some(Backend::All),
+        _ => None,
+    }
+}
+
+/// wine puts its own directories in the environment of everything it starts,
+/// which is a cheaper way to ask than calling into ntdll.
+fn under_wine() -> bool {
+    ["WINECONFIGDIR", "WINEDATADIR", "WINEHOMEDIR", "WINELOADER"]
+        .iter()
+        .any(|name| env::var_os(name).is_some())
+}
+
 pub fn main() -> GameResult {
     let default_addr = "127.0.0.1:9001".to_string();
     let mut addr = env::args().nth(1).unwrap_or(default_addr);
@@ -264,9 +315,30 @@ pub fn main() -> GameResult {
     }
 
     let (mut ctx, event_loop) = ContextBuilder::new("snowball_spin_net", "you")
+        .backend(graphics_backend())
         .window_setup(ggez::conf::WindowSetup::default().title("Snowball Spin - Client"))
         .window_mode(ggez::conf::WindowMode::default().dimensions(1200.0, 800.0))
         .build()?;
     let client = MainState::new(&addr, &mut ctx)?;
     event::run(ctx, event_loop, client)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_backend_can_be_named_however_it_is_typed() {
+        assert_eq!(backend_by_name(" Vulkan "), Some(Backend::Vulkan));
+        assert_eq!(backend_by_name("DX12"), Some(Backend::Dx12));
+        assert_eq!(backend_by_name("gl"), Some(Backend::Gl));
+        assert_eq!(backend_by_name("primary"), Some(Backend::OnlyPrimary));
+        assert_eq!(backend_by_name("all"), Some(Backend::All));
+    }
+
+    #[test]
+    fn anything_else_is_left_to_the_automatic_choice() {
+        assert_eq!(backend_by_name("potato"), None);
+        assert_eq!(backend_by_name(""), None);
+    }
 }
