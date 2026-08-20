@@ -7,6 +7,8 @@ use std::{env, fs};
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::channel;
 
+mod achievements;
+mod dibrysoft;
 mod input;
 mod network;
 mod physics;
@@ -15,6 +17,7 @@ mod state;
 mod text_input_workaround;
 mod ui;
 
+use achievements::Achievements;
 use input::InputState;
 use network::NetworkClient;
 use physics::update_physics;
@@ -33,6 +36,7 @@ struct MainState {
     ui: UiState,
     ui_events_rx: Receiver<UIMessage>,
     char_input: CharInput,
+    achievements: Achievements,
 }
 
 impl MainState {
@@ -53,6 +57,7 @@ impl MainState {
             ui: UiState::new(&mut ctx, tx),
             ui_events_rx: rx,
             char_input: CharInput::new(),
+            achievements: Achievements::new(),
         })
     }
 
@@ -186,6 +191,8 @@ impl EventHandler for MainState {
         // Update physics
         update_physics(&mut self.game, dt);
 
+        self.achievements.observe(&self.game, dt);
+
         // Optional: ping server for latency measurements
         if ctx.time.ticks() % 300 == 0 {
             self.network.send(ClientMessage::Ping { ts: 0 });
@@ -219,8 +226,10 @@ impl EventHandler for MainState {
 
     fn key_up_event(&mut self, _ctx: &mut Context, input: KeyInput) -> Result<(), GameError> {
         if let PhysicalKey::Code(keycode) = input.event.physical_key {
+            let charge = self.input.spin_timer();
             if let Some(action) = self.input.process_key_up(keycode) {
                 if let PlayerAction::Shoot = action {
+                    self.achievements.shot_fired(&self.game, charge);
                     self.network.send(ClientMessage::Input {
                         left: false,
                         right: false,
@@ -230,6 +239,11 @@ impl EventHandler for MainState {
             }
         }
         Ok(())
+    }
+
+    fn quit_event(&mut self, _ctx: &mut Context) -> Result<bool, GameError> {
+        self.achievements.save();
+        Ok(false)
     }
 
     //doesnt trigger for some reason - maybe it will be fixed one day
